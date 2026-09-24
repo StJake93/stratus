@@ -20,8 +20,8 @@
   const r = $derived(router.route);
   const full = $derived(r.name === 'play');
 
-  // First visit: open the tutorial.
-  if (!progress.d.tutorialDone) setTimeout(() => (settings.tourOpen = true), 500);
+  // First visit to the dashboard: open the tutorial (don't hijack deep links to lessons or scenarios).
+  if (!progress.d.tutorialDone && router.route.name === 'home') setTimeout(() => (settings.tourOpen = true), 500);
 </script>
 
 <div class="shell">
