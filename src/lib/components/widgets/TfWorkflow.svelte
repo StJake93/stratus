@@ -155,7 +155,7 @@
     const s = t.trim();
     if (s.startsWith('$')) return 'cmd';
     if (/^\+|created|complete!|successfully|Creation complete/.test(s)) return 'g';
-    if (/^-(?!\/)|destroyed|Destroying|Destruction|Error/.test(s)) return 'r';
+    if (/^- aws_|destroyed|Destroying|Destruction|Error/.test(s)) return 'r';
     if (/^~|^-\/\+|updated|replaced|Modif/.test(s)) return 'y';
     if (/^Plan:|^#/.test(s)) return 'b';
     return '';

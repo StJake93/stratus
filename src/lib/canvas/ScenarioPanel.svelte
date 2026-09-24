@@ -11,6 +11,8 @@
   let { scenario }: { scenario: Scenario } = $props();
 
   let hints = $state<number[]>([]);
+  // Keyed on scenario id by the parent, so the initial value is the right one.
+  // svelte-ignore state_referenced_locally
   let celebrated = $state(progress.scenarioDone(scenario.id));
 
   const status = $derived(scenario.steps.map((s) => s.check(board.graph)));

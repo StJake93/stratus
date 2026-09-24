@@ -245,7 +245,7 @@ export const SCENARIOS: Scenario[] = [
       { goal: 'Access through a least-privilege **IAM role**', hint: 'Add an IAM Role. In real life CI assumes it via OIDC.', check: (g) => g.has('iam') }
     ],
     noErrors: false,
-    debrief: 'Since Terraform 1.10 the S3 backend can lock state natively with `use_lockfile = true` — no DynamoDB table needed (the old DynamoDB lock table is deprecated). Look at `providers.tf` in the Terraform tab for the backend block.'
+    debrief: 'Since Terraform 1.11 the S3 backend can lock state natively with `use_lockfile = true` — no DynamoDB table needed (the old DynamoDB lock table is deprecated). Look at `providers.tf` in the Terraform tab for the backend block.'
   },
   {
     id: 'secure-api',

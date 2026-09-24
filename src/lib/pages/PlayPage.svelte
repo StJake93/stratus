@@ -12,6 +12,8 @@
   import { href } from '../stores/router.svelte';
 
   let { scenario: scenarioId }: { scenario?: string } = $props();
+  // PlayPage is keyed on the scenario id by App, so reading the initial value is intended.
+  // svelte-ignore state_referenced_locally
   const scenario = scenarioId ? SCENARIO[scenarioId] : undefined;
 
   board.load(scenario ? `stratus.board.scenario.${scenario.id}` : 'stratus.board.free', scenario ?? null);

@@ -195,6 +195,11 @@
     overflow: hidden;
     box-shadow: var(--shadow);
   }
+  @media (max-width: 640px) {
+    .canvas :global(.svelte-flow__minimap) {
+      display: none;
+    }
+  }
   .canvas :global(.svelte-flow__minimap) {
     border-radius: 12px;
     overflow: hidden;

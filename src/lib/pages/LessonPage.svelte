@@ -111,6 +111,7 @@
     padding: 32px 32px 80px;
   }
   .outline {
+    min-width: 0;
     position: sticky;
     top: 24px;
     align-self: start;
@@ -259,7 +260,7 @@
   }
   @media (max-width: 960px) {
     .wrap {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       padding: 56px 16px 60px;
       gap: 18px;
     }
@@ -269,6 +270,7 @@
     ol {
       display: flex;
       overflow-x: auto;
+      scrollbar-width: none;
       border-left: 0;
       border-bottom: 2px solid var(--border);
     }

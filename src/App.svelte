@@ -72,6 +72,7 @@
   main {
     flex: 1;
     min-width: 0;
+    overflow-x: hidden;
     height: 100vh;
     overflow-y: auto;
     position: relative;

@@ -19,11 +19,11 @@
   }
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- Keyboard and swipe navigation for the whole carousel. -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 <section
   class="car"
   tabindex="0"
-  role="region"
   aria-roledescription="carousel"
   onkeydown={key}
   ontouchstart={(e) => (startX = e.touches[0].clientX)}
