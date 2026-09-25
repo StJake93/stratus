@@ -67,20 +67,27 @@ export async function auditDiagrams(routes = DIAGRAM_ROUTES, settle = 800): Prom
         });
         for (const n of nodes) if (outside(n.tile, stage) || outside(n.label, stage)) issues.push(`${n.name} is clipped`);
 
-        // Edges must not run through any node other than their own ends.
+        // Edges must not run through any node other than their own ends, loop back on themselves, or shrink to a stub.
         const svg = fig.querySelector('svg')!;
         const origin = svg.getBoundingClientRect();
-        for (const path of svg.querySelectorAll<SVGPathElement>('path.edge')) {
+        for (const [i, path] of [...svg.querySelectorAll<SVGPathElement>('path.edge')].entries()) {
           const len = path.getTotalLength();
-          const pts = Array.from({ length: 19 }, (_, k) => {
-            const q = path.getPointAtLength((len * (k + 1)) / 20);
+          const a = path.getPointAtLength(0);
+          const b = path.getPointAtLength(len);
+          const chord = Math.hypot(b.x - a.x, b.y - a.y);
+          if (len < 18) issues.push(`edge ${i + 1} is a stub (${Math.round(len)}px)`);
+          else if (len > 2.2 * chord + 30) issues.push(`edge ${i + 1} loops (${Math.round(len)}px path for a ${Math.round(chord)}px gap)`);
+          const pts = Array.from({ length: 59 }, (_, k) => {
+            const q = path.getPointAtLength((len * (k + 1)) / 60);
             return { x: origin.left + q.x, y: origin.top + q.y };
           });
           for (const n of nodes) {
-            const box = { left: Math.min(n.tile.left, n.label.left) + 4, right: Math.max(n.tile.right, n.label.right) - 4, top: n.tile.top + 4, bottom: n.label.bottom - 4 };
-            const near = (p: { x: number; y: number }) => p.x > box.left - 30 && p.x < box.right + 30 && p.y > box.top - 30 && p.y < box.bottom + 30;
+            // Skip the edge's own ends; otherwise test the tile and the label separately (a label can be wider).
+            const all = { left: Math.min(n.tile.left, n.label.left), right: Math.max(n.tile.right, n.label.right), top: n.tile.top, bottom: n.label.bottom };
+            const near = (p: { x: number; y: number }) => p.x > all.left - 30 && p.x < all.right + 30 && p.y > all.top - 30 && p.y < all.bottom + 30;
             if (near(pts[0]) || near(pts[pts.length - 1])) continue;
-            if (pts.slice(2, -2).some((p) => p.x > box.left && p.x < box.right && p.y > box.top && p.y < box.bottom)) issues.push(`an edge runs through ${n.name}`);
+            const inside = (p: { x: number; y: number }, r: DOMRect) => p.x > r.left + 2 && p.x < r.right - 2 && p.y > r.top + 2 && p.y < r.bottom - 2;
+            if (pts.slice(4, -4).some((p) => inside(p, n.tile) || inside(p, n.label))) issues.push(`edge ${i + 1} runs through ${n.name}`);
           }
         }
         report.push({ route, width: Math.round(stage.width), height: Math.round(stage.height), issues: [...new Set(issues)] });

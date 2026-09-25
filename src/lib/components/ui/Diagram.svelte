@@ -172,11 +172,16 @@
     return true;
   }
 
-  // A node occupies its tile plus the (possibly wrapped) label underneath it.
-  function nodeBox(n: DiagramNode, inflate = 0): Box {
+  // A node is its tile plus the (possibly wrapped) label underneath it. They are kept as two boxes so an edge
+  // can leave the side of a tile even when the label below it is wider.
+  function nodeBoxes(n: DiagramNode, inflate = 0): Box[] {
     const c = center(n);
-    const half = halfW(n);
-    return { x1: c.x - half - inflate, y1: c.y - TILE - inflate, x2: c.x + half + inflate, y2: c.y + TILE + 6 + labelH(n) + inflate };
+    const half = (sizes[`n:${n.id}`]?.w || Math.min(textW(n.label), labelMax.get(n.id) ?? 150)) / 2;
+    const top = c.y + TILE + 6;
+    return [
+      { x1: c.x - TILE - inflate, y1: c.y - TILE - inflate, x2: c.x + TILE + inflate, y2: c.y + TILE + inflate },
+      { x1: c.x - half - inflate, y1: top - inflate, x2: c.x + half + inflate, y2: top + labelH(n) + inflate }
+    ];
   }
 
   type Side = 'l' | 'r' | 't' | 'b';
@@ -222,11 +227,12 @@
       const a = byId[e.from];
       const b = byId[e.to];
       if (!a || !b) continue;
-      const others = items.filter((n) => n !== a && n !== b).map((n) => nodeBox(n, 6));
-      const ends = [nodeBox(a), nodeBox(b)];
+      const others = items.filter((n) => n !== a && n !== b).flatMap((n) => nodeBoxes(n, 6));
+      const ends = [...nodeBoxes(a), ...nodeBoxes(b)];
 
       // Score every combination of ports and sideways bends: anything that crosses a node (or leaves the stage)
-      // loses, then prefer the natural ports and the gentlest bend.
+      // loses, then prefer the natural ports, the gentlest bend, and a curve that neither loops nor shrinks to a
+      // stub (as happens between nodes stacked almost on top of each other).
       let best: { s: Pt; t: Pt; c1: Pt; c2: Pt; score: number } | null = null;
       const from = ports(a, center(b), 2);
       const to = ports(b, center(a), 6);
@@ -245,15 +251,18 @@
             const c1 = { x: s.x + ps.out.x * k1 - (dy / len) * off, y: s.y + ps.out.y * k1 + (dx / len) * off };
             const c2 = { x: t.x + pt.out.x * k2 - (dy / len) * off, y: t.y + pt.out.y * k2 + (dx / len) * off };
             let hits = 0;
+            let length = 0;
             let prev = s;
             for (let k = 1; k <= 32; k++) {
               const p = bez(s, c1, c2, t, k / 32);
               if (others.some((bx) => crosses(prev, p, bx))) hits++;
               if (k > 3 && k < 30 && ends.some((bx) => crosses(prev, p, bx))) hits++;
               if (p.x < 2 || p.x > w - 2 || p.y < 2 || p.y > H - 2) hits++;
+              length += Math.hypot(p.x - prev.x, p.y - prev.y);
               prev = p;
             }
-            const score = hits * 1000 + (i ? 40 : 0) + (j ? 40 : 0) + Math.abs(off) * 0.3 + (ks < 1 ? 5 : 0);
+            const shape = (len < 24 ? 200 : 0) + Math.max(0, length - 1.6 * len - 40) * 0.5;
+            const score = hits * 1000 + (i ? 40 : 0) + (j ? 40 : 0) + Math.abs(off) * 0.3 + (ks < 1 ? 5 : 0) + shape;
             if (!best || score < best.score) best = { s, t, c1, c2, score };
           }
         }
@@ -267,7 +276,7 @@
       if (e.label) {
         const lw = (sizes[edgeKey(e)]?.w || labelW(e.label, 6.4)) + 4;
         const lh = (sizes[edgeKey(e)]?.h || 22) / 2 + 2;
-        const all = [...items.map((n) => nodeBox(n, 4)), ...groups.map(legendBox)];
+        const all = [...items.flatMap((n) => nodeBoxes(n, 4)), ...groups.map(legendBox)];
         const area = (a: Box, b: Box) => Math.max(0, Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1)) * Math.max(0, Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1));
         // Walk along the curve first; if the line has no room (e.g. a wide label between close nodes),
         // lift the label off the line to either side. If nothing is completely clear, take the least-covered spot.
