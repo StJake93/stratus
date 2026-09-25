@@ -26,17 +26,17 @@
     <h1>Progress &amp; achievements</h1>
   </header>
 
-  <section class="level card">
-    <div class="big">{progress.level.n}</div>
+  <section class="level card" aria-labelledby="level-title">
+    <div class="big" aria-hidden="true">{progress.level.n}</div>
     <div class="info">
-      <h2>{progress.level.title}</h2>
+      <h2 id="level-title"><span class="sr-only">Level {progress.level.n}: </span>{progress.level.title}</h2>
       <p class="muted">{progress.d.xp.toLocaleString()} XP {progress.level.next ? `· ${(progress.level.next.xp - progress.d.xp).toLocaleString()} XP to ${progress.level.next.title}` : '· max level!'}</p>
-      <div class="bar"><span style:width="{progress.level.pct * 100}%"></span></div>
-      <div class="ladder">
+      <div class="bar" role="progressbar" aria-label="Progress to the next level" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress.level.pct * 100)}><span style:width="{progress.level.pct * 100}%"></span></div>
+      <ol class="ladder" aria-label="Levels">
         {#each LEVELS as l, i}
-          <span class:reached={progress.d.xp >= l.xp} title="{l.title} · {l.xp} XP">{i + 1}</span>
+          <li class:reached={progress.d.xp >= l.xp} title="{l.title} · {l.xp} XP"><span aria-hidden="true">{i + 1}</span><span class="sr-only">Level {i + 1}, {l.title}, {l.xp} XP, {progress.d.xp >= l.xp ? 'reached' : 'not reached'}</span></li>
         {/each}
-      </div>
+      </ol>
     </div>
     <div class="mini">
       <div><Icon name="flame" size={16} /><b>{progress.d.streak.count}</b><small>day streak</small></div>
@@ -58,24 +58,26 @@
   </div>
 
   <h2 class="sub">Badges</h2>
-  <div class="badges">
+  <ul class="badges">
     {#each BADGES as b (b.id)}
       {@const got = progress.d.badges.includes(b.id)}
-      <div class="bdg" class:got>
-        <span class="bi"><Icon name={got ? b.icon : 'lock'} size={22} /></span>
+      <li class="bdg" class:got>
+        <span class="bi" aria-hidden="true"><Icon name={got ? b.icon : 'lock'} size={22} /></span>
         <strong>{b.name}</strong>
         <small>{b.desc}</small>
-      </div>
+        <span class="state">{got ? 'Unlocked' : 'Locked'}</span>
+      </li>
     {/each}
-  </div>
+  </ul>
 
   <h2 class="sub">Settings</h2>
   <div class="row settings">
-    <button class="btn" onclick={() => settings.toggleTheme()}><Icon name={settings.theme === 'dark' ? 'sun' : 'moon'} size={15} /> {settings.theme === 'dark' ? 'Light' : 'Dark'} mode</button>
+    <button class="btn" onclick={() => settings.toggleTheme()}><Icon name={settings.theme === 'dark' ? 'sun' : 'moon'} size={15} /> Switch to {settings.theme === 'dark' ? 'light' : 'dark'} theme</button>
+    <button class="btn" aria-pressed={settings.reduced} onclick={() => settings.toggleMotion()}><Icon name={settings.reduced ? 'pause' : 'sparkles'} size={15} /> Reduce motion</button>
     <button class="btn" onclick={() => (settings.tourOpen = true)}><Icon name="circle-play" size={15} /> Replay tutorial</button>
     <button class="btn danger" onclick={reset}><Icon name="trash" size={15} /> Reset progress</button>
   </div>
-  <p class="faint small">Progress is stored locally in this browser (no account needed).</p>
+  <p class="faint small">Reduce motion stops looping animations and starts simulations paused. It follows your system setting until you change it here. Progress is stored locally in this browser, with no account needed.</p>
 </div>
 
 <style>
@@ -103,7 +105,7 @@
     display: grid;
     place-items: center;
     border-radius: 24px;
-    background: var(--grad);
+    background: var(--grad-strong);
     color: white;
     font-size: 2.4rem;
     font-weight: 800;
@@ -119,7 +121,7 @@
   .bar {
     height: 8px;
     border-radius: 8px;
-    background: var(--surface-3);
+    background: var(--track);
     overflow: hidden;
     margin: 10px 0;
   }
@@ -129,23 +131,29 @@
     background: var(--grad);
   }
   .ladder {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
   }
-  .ladder span {
-    width: 24px;
-    height: 24px;
+  .ladder li {
+    width: 26px;
+    height: 26px;
     display: grid;
     place-items: center;
     border-radius: 7px;
     background: var(--surface-2);
-    font-size: 0.72rem;
+    border: 1px solid var(--border-strong);
+    font-size: 0.74rem;
     font-weight: 700;
-    color: var(--text-3);
+    color: var(--text-2);
   }
-  .ladder span.reached {
-    background: var(--accent);
-    color: white;
+  .ladder li.reached {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: #ffffff;
   }
   .mini {
     display: grid;
@@ -155,13 +163,13 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--accent-2);
+    color: var(--accent-2-fg);
   }
   .mini b {
     color: var(--text);
   }
   .mini small {
-    color: var(--text-3);
+    color: var(--text-2);
   }
   .sub {
     margin: 32px 0 12px;
@@ -187,8 +195,8 @@
   }
   .tr small {
     display: block;
-    color: var(--text-3);
-    font-size: 0.76rem;
+    color: var(--text-2);
+    font-size: 0.78rem;
   }
   .ring {
     width: 52px;
@@ -212,6 +220,9 @@
     font-size: 0.74rem;
   }
   .badges {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 10px;
@@ -226,12 +237,15 @@
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
     background: var(--surface);
-    opacity: 0.5;
-    filter: grayscale(1);
+  }
+  /* Locked badges dim the icon only, so the text keeps full contrast. */
+  .bdg:not(.got) .bi {
+    opacity: 0.6;
+  }
+  .bdg:not(.got) {
+    border-style: dashed;
   }
   .bdg.got {
-    opacity: 1;
-    filter: none;
     border-color: rgba(124, 92, 255, 0.4);
     background:
       radial-gradient(100% 80% at 50% 0%, rgba(124, 92, 255, 0.18), transparent 70%),
@@ -247,13 +261,24 @@
     margin-bottom: 6px;
   }
   .got .bi {
-    background: var(--grad);
+    background: var(--grad-strong);
     color: white;
     box-shadow: 0 8px 22px -8px rgba(124, 92, 255, 0.9);
   }
   .bdg small {
-    font-size: 0.74rem;
+    font-size: 0.76rem;
+    color: var(--text-2);
+  }
+  .state {
+    margin-top: 4px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     color: var(--text-3);
+  }
+  .got .state {
+    color: var(--ok-fg);
   }
   .settings {
     flex-wrap: wrap;

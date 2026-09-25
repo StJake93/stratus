@@ -5,6 +5,7 @@
   import { board } from './board.svelte';
   import { progress } from '../stores/progress.svelte';
   import { toast } from '../stores/toast.svelte';
+  import { scrollable } from '../actions';
 
   let file = $state(0);
   let showPlan = $state(false);
@@ -46,7 +47,7 @@
   }
   function apply() {
     if (errors.length) {
-      toast.err('terraform apply would fail', `Fix the ${errors.length} error${errors.length > 1 ? 's' : ''} in the Issues tab first — AWS would reject this configuration.`);
+      toast.err('terraform apply would fail', `Fix the ${errors.length} error${errors.length > 1 ? 's' : ''} in the Issues tab first. AWS would reject this configuration.`);
       return;
     }
     board.markApplied();
@@ -55,24 +56,25 @@
 </script>
 
 <div class="tf">
+  <h2 class="sr-only">Terraform</h2>
   <div class="bar">
-    <div class="seg">
-      <button class:on={!showPlan} onclick={() => (showPlan = false)}><Icon name="file-code" size={13} /> Code</button>
-      <button class:on={showPlan} onclick={() => (showPlan = true)}><Icon name="square-terminal" size={13} /> Plan</button>
+    <div class="seg" role="group" aria-label="View">
+      <button aria-pressed={!showPlan} onclick={() => (showPlan = false)}><Icon name="file-code" size={13} /> Code</button>
+      <button aria-pressed={showPlan} onclick={() => (showPlan = true)}><Icon name="square-terminal" size={13} /> Plan</button>
     </div>
     <span class="spacer"></span>
-    <button class="btn sm ghost" onclick={copy} title="Copy file"><Icon name="copy" size={14} /></button>
-    <button class="btn sm ghost" onclick={download} title="Download all files"><Icon name="download" size={14} /></button>
+    <button class="btn sm ghost" onclick={copy} aria-label="Copy {current.name}" title="Copy file"><Icon name="copy" size={14} /></button>
+    <button class="btn sm ghost" onclick={download} aria-label="Download all Terraform files" title="Download all files"><Icon name="download" size={14} /></button>
   </div>
 
   {#if !showPlan}
-    <div class="files">
-      {#each files as f, i}<button class:on={file === i} onclick={() => (file = i)}>{f.name}</button>{/each}
+    <div class="files" role="group" aria-label="Files">
+      {#each files as f, i}<button aria-pressed={file === i} onclick={() => (file = i)}>{f.name}</button>{/each}
     </div>
-    <pre class="code"><code>{@html highlight(current.code, 'hcl')}</code></pre>
-    <p class="note">Generated live from your diagram. Simplified for learning — review before real use.</p>
+    <pre class="code" use:scrollable><code>{@html highlight(current.code, 'hcl')}</code></pre>
+    <p class="note">Generated live from your diagram. Simplified for learning, so review it before real use.</p>
   {:else}
-    <div class="plan">
+    <div class="plan" use:scrollable role="log" aria-label="terraform plan output">
       <div class="cmd">$ terraform plan</div>
       {#if errors.length}
         <div class="r">│ Error: {errors[0].title}</div>
@@ -86,11 +88,11 @@
         {#each plan.del as a (a)}<div class="r">  - {a}</div>{/each}
         <div class="b">Plan: {plan.add.length} to add, 0 to change, {plan.del.length} to destroy.</div>
       {/if}
-      {#if plan.keep.length}<div class="faint">  ({plan.keep.length} unchanged)</div>{/if}
+      {#if plan.keep.length}<div class="dim">  ({plan.keep.length} unchanged)</div>{/if}
     </div>
     <div class="row acts">
       <button class="btn sm primary" onclick={apply} disabled={!plan.add.length && !plan.del.length}><Icon name="play" size={13} /> terraform apply</button>
-      <span class="faint small">Simulated — nothing is deployed. Change the diagram and re-plan to see the diff.</span>
+      <span class="faint small">Simulated, so nothing is deployed. Change the diagram and plan again to see the diff.</span>
     </div>
   {/if}
 </div>
@@ -115,6 +117,7 @@
     background: var(--surface-2);
   }
   .seg button {
+    min-height: 28px;
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -126,9 +129,9 @@
     font-weight: 600;
     color: var(--text-2);
   }
-  .seg button.on {
-    background: var(--tf);
-    color: white;
+  .seg button[aria-pressed='true'] {
+    background: #6d28d9;
+    color: #ffffff;
   }
   .files {
     display: flex;
@@ -137,18 +140,29 @@
     overflow-x: auto;
   }
   .files button {
+    min-height: 30px;
     border: 0;
     background: none;
     padding: 6px 9px;
     font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--text-3);
-    border-bottom: 2px solid transparent;
+    font-size: 0.74rem;
+    color: var(--text-2);
+    border-bottom: 3px solid transparent;
     white-space: nowrap;
   }
-  .files button.on {
+  .files {
+    padding: 0 2px;
+  }
+  .files button:focus-visible,
+  .code:focus-visible,
+  .plan:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+  .files button[aria-pressed='true'] {
     color: var(--text);
     border-bottom-color: var(--tf);
+    font-weight: 700;
   }
   .code {
     margin: 8px 0 0;
@@ -167,7 +181,7 @@
     padding: 0;
   }
   .note {
-    font-size: 0.72rem;
+    font-size: 0.76rem;
     color: var(--text-3);
     margin: 8px 0 0;
   }
@@ -181,6 +195,9 @@
     white-space: pre-wrap;
     max-height: calc(100vh - 280px);
     overflow: auto;
+  }
+  .dim {
+    color: #a3adc2;
   }
   .cmd {
     color: #22d3ee;
@@ -202,6 +219,6 @@
     flex-wrap: wrap;
   }
   .small {
-    font-size: 0.72rem;
+    font-size: 0.76rem;
   }
 </style>

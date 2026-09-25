@@ -34,7 +34,7 @@ function load(): ProgressData {
     const raw = localStorage.getItem(KEY);
     if (raw) return { ...blank(), ...JSON.parse(raw) };
   } catch {
-    /* storage unavailable or corrupt — start fresh */
+    /* storage unavailable or corrupt, so start fresh */
   }
   return blank();
 }
@@ -68,7 +68,7 @@ class Progress {
     try {
       localStorage.setItem(KEY, JSON.stringify(this.d));
     } catch {
-      /* quota / private mode — progress just won't persist */
+      /* quota or private mode: progress just won't persist */
     }
   }
 

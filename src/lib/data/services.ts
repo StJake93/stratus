@@ -331,7 +331,7 @@ export const SERVICES: Service[] = [
     links: { lambda: 'event notification', sqs: 'event notification', sns: 'event notification', eventbridge: 'events' },
     config: [
       { key: 'versioning', label: 'Versioning', type: 'toggle', default: true },
-      { key: 'public', label: 'Allow public access', type: 'toggle', default: false, help: 'Almost always keep this off — serve public content through CloudFront instead.' },
+      { key: 'public', label: 'Allow public access', type: 'toggle', default: false, help: 'Almost always keep this off. Serve public content through CloudFront instead.' },
       { key: 'class', label: 'Default storage class', type: 'select', options: ['STANDARD', 'INTELLIGENT_TIERING', 'STANDARD_IA', 'GLACIER_IR'], default: 'STANDARD' }
     ]
   },
@@ -480,7 +480,7 @@ export const SERVICES: Service[] = [
     full: 'AWS WAF web ACL',
     category: 'security',
     icon: 'shield',
-    blurb: 'Web application firewall — blocks SQL injection, bots and abusive IPs in front of CloudFront, ALB or API Gateway.',
+    blurb: 'Web application firewall that blocks SQL injection, bots and abusive IPs in front of CloudFront, ALB or API Gateway.',
     docs: `${D}/waf/latest/developerguide/waf-chapter.html`,
     tf: 'aws_wafv2_web_acl',
     placement: 'region',
@@ -512,10 +512,10 @@ export function categoryColor(c: Category) {
   return CATEGORIES.find((x) => x.id === c)?.color ?? 'var(--accent)';
 }
 
-/** Why a specific pairing is invalid — shown as an error toast so learners understand the rule. */
+/** Why a specific pairing is invalid, shown as an error toast so learners understand the rule. */
 export const BAD_LINKS: Record<string, string> = {
   'users->rds': 'Databases should never be exposed straight to the internet. Put an application tier (Lambda, ECS, EC2) in between.',
-  'users->dynamodb': 'Clients don’t talk to DynamoDB directly in a typical design — route through API Gateway + Lambda so you control auth and validation.',
+  'users->dynamodb': 'Clients don’t talk to DynamoDB directly in a typical design. Route through API Gateway + Lambda so you control auth and validation.',
   'users->lambda': 'Lambda functions aren’t called directly by browsers here. Put API Gateway (or an ALB) in front as the HTTP entry point.',
   'users->ecs': 'Expose containers through an Application Load Balancer, not directly.',
   'users->eks': 'Expose Kubernetes workloads through a load balancer / ingress.',
@@ -527,7 +527,7 @@ export const BAD_LINKS: Record<string, string> = {
   'cloudfront->dynamodb': 'CloudFront origins must speak HTTP. Put API Gateway in front of your data.',
   'apigw->rds': 'API Gateway can’t speak SQL. Use a Lambda integration that queries RDS.',
   'alb->rds': 'Load balancers distribute HTTP traffic to compute, not databases.',
-  'alb->s3': 'ALBs target instances, IPs, Lambda or containers — not buckets. Use CloudFront for S3.',
+  'alb->s3': 'ALBs target instances, IPs, Lambda or containers, not buckets. Use CloudFront for S3.',
   'ecr->ec2': 'EC2 can pull images, but in this lab connect ECR to ECS/EKS/Lambda which consume images natively.',
   'igw->rds': 'An Internet Gateway attaches to the VPC; it isn’t wired to individual resources. Place it inside the VPC instead.',
   'natgw->users': 'NAT gateways only allow *outbound* connections. Inbound internet traffic needs an ALB in a public subnet.'

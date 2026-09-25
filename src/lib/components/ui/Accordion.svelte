@@ -2,8 +2,12 @@
   import type { Snippet } from 'svelte';
   import { slide } from 'svelte/transition';
   import Icon from '../Icon.svelte';
+  import { settings } from '../../stores/settings.svelte';
+  import { headingLevel, tag } from '../../heading';
 
   let { titles, body, multi = false }: { titles: string[]; body: Snippet<[number]>; multi?: boolean } = $props();
+  const uid = `acc-${Math.random().toString(36).slice(2, 8)}`;
+  const level = headingLevel();
   let open = $state<number[]>([]);
 
   function toggle(i: number) {
@@ -16,13 +20,15 @@
   {#each titles as title, i}
     {@const isOpen = open.includes(i)}
     <div class="item" class:open={isOpen}>
-      <button class="head" aria-expanded={isOpen} onclick={() => toggle(i)}>
-        <span class="num">{String(i + 1).padStart(2, '0')}</span>
-        <span class="t">{title}</span>
-        <span class="chev"><Icon name="chevron-down" size={18} /></span>
-      </button>
+      <svelte:element this={tag(level)} class="h">
+        <button class="head" id="{uid}-h-{i}" aria-expanded={isOpen} aria-controls="{uid}-p-{i}" onclick={() => toggle(i)}>
+          <span class="num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+          <span class="t">{title}</span>
+          <span class="chev" aria-hidden="true"><Icon name="chevron-down" size={18} /></span>
+        </button>
+      </svelte:element>
       {#if isOpen}
-        <div class="body" transition:slide={{ duration: 260 }}>
+        <div class="body" id="{uid}-p-{i}" role="region" aria-labelledby="{uid}-h-{i}" transition:slide={{ duration: settings.reduced ? 0 : 260 }}>
           <div class="inner">{@render body(i)}</div>
         </div>
       {/if}
@@ -48,14 +54,21 @@
     border-color: var(--border-strong);
     background: var(--surface-2);
   }
+  .h {
+    margin: 0;
+    font-size: 1rem;
+    letter-spacing: normal;
+  }
   .head {
     width: 100%;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 13px 16px;
+    min-height: 48px;
+    padding: 12px 16px;
     background: none;
     border: 0;
+    border-radius: var(--radius);
     text-align: left;
     font-weight: 600;
   }
@@ -74,9 +87,14 @@
   }
   .open .chev {
     transform: rotate(180deg);
-    color: var(--accent-2);
+    color: var(--accent-2-fg);
   }
   .inner {
     padding: 0 18px 8px 46px;
+  }
+  @media (max-width: 600px) {
+    .inner {
+      padding-left: 16px;
+    }
   }
 </style>

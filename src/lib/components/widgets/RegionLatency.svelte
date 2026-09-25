@@ -1,4 +1,5 @@
 <script lang="ts">
+  import WidgetFrame from './WidgetFrame.svelte';
   // Stylised world map: equirectangular projection of real lat/long.
   const regions = [
     { id: 'us-east-1', city: 'N. Virginia', lat: 38.9, lon: -77.4, azs: 6 },
@@ -60,36 +61,48 @@
       if (land.some(([a, b, c, d]) => lon >= a && lon <= c && lat <= b && lat >= d)) dots.push(proj(lat, lon));
 </script>
 
-<div class="wbox">
-  <div class="whead"><span class="wtag">Interactive</span><h4>Regions, AZs &amp; latency</h4></div>
-  <div class="pick">
-    <span class="eyebrow">Your users are in</span>
-    {#each users as x}<button class:on={user === x.id} onclick={() => (user = x.id)}>{x.city}</button>{/each}
+<WidgetFrame title="Regions, AZs and latency">
+  <div class="pick" role="group" aria-labelledby="rl-users">
+    <span class="eyebrow" id="rl-users">Your users are in</span>
+    {#each users as x}<button aria-pressed={user === x.id} onclick={() => (user = x.id)}>{x.city}</button>{/each}
   </div>
-  <svg viewBox="0 0 {W} {H}" class="map" role="img" aria-label="World map of AWS regions">
-    {#each dots as d}<circle cx={d.x} cy={d.y} r="1.6" class="land" />{/each}
-    <path d={arc} class="arc" />
-    <path d={arc} class="pkt" pathLength="400" />
+  <label class="sel">Region <select class="input" bind:value={region}>{#each regions as r}<option value={r.id}>{r.id} ({r.city})</option>{/each}</select></label>
+  <svg viewBox="0 0 {W} {H}" class="map" role="group" aria-label="World map of AWS regions. Choose a region to measure latency from {u.city}.">
+    <g aria-hidden="true">
+      {#each dots as d}<circle cx={d.x} cy={d.y} r="1.6" class="land" />{/each}
+      <path d={arc} class="arc" />
+      <path d={arc} class="pkt" pathLength="400" />
+    </g>
     {#each regions as r}
       {@const p = proj(r.lat, r.lon)}
-      <g class="reg" class:on={r.id === region} class:best={r.id === best.id} onclick={() => (region = r.id)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && (region = r.id)}>
+      <g
+        class="reg"
+        class:on={r.id === region}
+        class:best={r.id === best.id}
+        onclick={() => (region = r.id)}
+        role="button"
+        tabindex="0"
+        aria-label="{r.id}, {r.city}{r.id === best.id ? ', closest to your users' : ''}"
+        aria-pressed={r.id === region}
+        onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), (region = r.id))}
+      >
         <circle cx={p.x} cy={p.y} r="12" class="halo" />
         <circle cx={p.x} cy={p.y} r="5" class="dot" />
-        <text x={p.x} y={p.y - 11}>{r.id}</text>
+        <text x={p.x} y={p.y - 11} aria-hidden="true">{r.id}</text>
       </g>
     {/each}
-    <circle cx={pu.x} cy={pu.y} r="6" class="user" />
+    <circle cx={pu.x} cy={pu.y} r="6" class="user" aria-hidden="true" />
   </svg>
-  <div class="stats">
-    <div class="stat"><span>Region</span><b>{rg.id}</b><small class="faint">{rg.city} · {rg.azs} AZs</small></div>
+  <div class="stats" aria-live="polite" aria-atomic="true">
+    <div class="stat"><span>Region</span><b>{rg.id}</b><small>{rg.city} · {rg.azs} AZs</small></div>
     <div class="stat"><span>Distance</span><b>{Math.round(dist).toLocaleString()} km</b></div>
-    <div class="stat"><span>Est. round trip</span><b class:good={rtt < 60} class:bad={rtt > 180}>~{rtt} ms</b></div>
+    <div class="stat"><span>Est. round trip</span><b class:good={rtt < 60} class:bad={rtt > 180}>about {rtt} ms</b></div>
   </div>
   <p class="faint small">
-    {#if best.id === region}Great choice — {rg.id} is the closest region to {u.city}.{:else}Tip: {best.id} ({best.city}) is closer to {u.city}. Also weigh data residency laws, service availability and price when choosing a region.{/if}
-    Click any region on the map. Estimate assumes light in fibre plus typical routing overhead.
+    {#if best.id === region}Great choice: {rg.id} is the closest region to {u.city}.{:else}Tip: {best.id} ({best.city}) is closer to {u.city}. Also weigh data residency laws, service availability and price when choosing a region.{/if}
+    Select any region on the map or from the list. The estimate assumes light in fibre plus typical routing overhead.
   </p>
-</div>
+</WidgetFrame>
 
 <style>
   .pick {
@@ -103,17 +116,39 @@
     margin-right: 4px;
   }
   .pick button {
+    min-height: 28px;
     padding: 4px 10px;
     border-radius: 999px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     background: var(--surface);
     font-size: 0.8rem;
     font-weight: 600;
   }
-  .pick button.on {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
+  .sel {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: 8px;
+  }
+  .sel .input {
+    width: auto;
+  }
+  .reg:focus-visible {
+    outline: none;
+  }
+  .reg:focus-visible .halo {
+    opacity: 1;
+    fill: none;
+    stroke: var(--focus);
+    stroke-width: 3;
+  }
+  .pick button[aria-pressed='true'] {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: #ffffff;
   }
   .map {
     width: 100%;
@@ -128,9 +163,9 @@
     cursor: pointer;
   }
   .reg text {
-    font-size: 9px;
-    font-weight: 600;
-    fill: var(--text-3);
+    font-size: 10px;
+    font-weight: 700;
+    fill: var(--text-2);
     text-anchor: middle;
     opacity: 0;
     transition: opacity 0.2s;
@@ -144,10 +179,10 @@
     fill: var(--text);
   }
   .dot {
-    fill: var(--aws);
+    fill: var(--aws-fg);
   }
   .halo {
-    fill: var(--aws);
+    fill: var(--aws-fg);
     opacity: 0;
     transition: opacity 0.2s;
   }
@@ -167,8 +202,8 @@
     }
   }
   .user {
-    fill: var(--accent-2);
-    stroke: white;
+    fill: var(--accent-2-fg);
+    stroke: var(--solid);
     stroke-width: 2;
   }
   .arc {
@@ -202,15 +237,16 @@
   }
   .stats small {
     display: block;
+    color: var(--text-2);
   }
   .stats b {
     font-size: 1.05rem !important;
   }
   .good {
-    color: var(--ok);
+    color: var(--ok-fg);
   }
   .bad {
-    color: var(--err);
+    color: var(--err-fg);
   }
   .small {
     font-size: 0.8rem;

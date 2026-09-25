@@ -1,6 +1,9 @@
 <script lang="ts">
+  import WidgetFrame from './WidgetFrame.svelte';
   import Icon from '../Icon.svelte';
   import { highlight } from '../../highlight';
+  import { scrollable } from '../../actions';
+  import { announce } from '../../stores/announce.svelte';
 
   let applied = $state<string[]>(['logs', 'images', 'backups']);
   let items = $state<string[]>(['logs', 'images', 'backups']);
@@ -53,73 +56,68 @@
   }
   function apply() {
     applied = [...items];
+    announce('Applied. The plan is now empty.');
   }
   const sym = { create: '+', destroy: '-', replace: '-/+', noop: ' ' };
+  const verb = { create: 'create', destroy: 'destroy', replace: 'replace', noop: 'no change' };
 </script>
 
-<div class="wbox">
-  <div class="whead">
-    <span class="wtag">Interactive</span><h4>count vs for_each</h4>
-    <span class="spacer"></span>
-    <div class="seg">
-      <button class:on={mode === 'count'} onclick={() => (mode = 'count')}>count</button>
-      <button class:on={mode === 'for_each'} onclick={() => (mode = 'for_each')}>for_each</button>
+<WidgetFrame title="count vs for_each">
+  {#snippet actions()}
+    <div class="seg" role="group" aria-label="Meta-argument">
+      <button aria-pressed={mode === 'count'} onclick={() => (mode = 'count')}>count</button>
+      <button aria-pressed={mode === 'for_each'} onclick={() => (mode = 'for_each')}>for_each</button>
     </div>
-  </div>
+  {/snippet}
   <p class="muted small">Remove an item from the <strong>middle</strong> of the list and compare the plans. With <code>count</code>, resources are tracked by position; with <code>for_each</code>, by key.</p>
 
-  <div class="items">
+  <ul class="items" aria-label="Buckets in var.buckets">
     {#each items as it, i (it)}
-      <span class="item">
-        <em>{mode === 'count' ? `[${i}]` : `["${it}"]`}</em>
+      <li class="item">
+        <em aria-hidden="true">{mode === 'count' ? `[${i}]` : `["${it}"]`}</em>
         {it}
-        <button aria-label="Remove {it}" onclick={() => (items = items.filter((x) => x !== it))}><Icon name="x" size={12} /></button>
-      </span>
+        <button aria-label="Remove {it}" onclick={() => (items = items.filter((x) => x !== it))}><Icon name="x" size={14} /></button>
+      </li>
     {/each}
-    <form onsubmit={(e) => (e.preventDefault(), add())}>
-      <input class="input" placeholder="add bucket…" bind:value={draft} />
-    </form>
-  </div>
+  </ul>
+  <form class="add" onsubmit={(e) => (e.preventDefault(), add())}>
+    <label class="sr-only" for="{mode}-bucket-input">Bucket name to add</label>
+    <input id="{mode}-bucket-input" class="input" placeholder="Add a bucket…" bind:value={draft} />
+    <button class="btn sm" type="submit" disabled={!draft.trim()}><Icon name="check" size={13} /> Add</button>
+  </form>
 
   <div class="grid">
-    <pre class="hcl"><code>{@html highlight(code, 'hcl')}</code></pre>
+    <pre class="hcl" use:scrollable><code>{@html highlight(code, 'hcl')}</code></pre>
     <div class="plan">
-      {#each ops as o (o.addr)}
-        <div class="op {o.op}"><span class="s">{sym[o.op]}</span> {o.addr} {#if o.note}<small>{o.note}</small>{/if}</div>
-      {/each}
-      <div class="sum">Plan: {summary.add} to add, 0 to change, {summary.del} to destroy.</div>
+      <ul class="ops" aria-label="terraform plan">
+        {#each ops as o (o.addr)}
+          <li class="op {o.op}"><span class="s" aria-hidden="true">{sym[o.op]}</span> <span class="sr-only">{verb[o.op]}: </span>{o.addr} {#if o.note}<small>{o.note}</small>{/if}</li>
+        {/each}
+      </ul>
+      <div class="sum" aria-live="polite">Plan: {summary.add} to add, 0 to change, {summary.del} to destroy.</div>
       {#if mode === 'count' && ops.some((o) => o.op === 'replace')}
-        <div class="warn"><Icon name="triangle-alert" size={14} /> Index shift! Buckets after the removed item get destroyed and re-created — with S3 that means data loss.</div>
+        <div class="warn" role="alert"><Icon name="triangle-alert" size={14} /> Index shift! Buckets after the removed item get destroyed and re-created. With S3, that means data loss.</div>
       {/if}
       <button class="btn sm primary" onclick={apply} disabled={!summary.add && !summary.del}>Apply</button>
     </div>
   </div>
-</div>
+</WidgetFrame>
 
 <style>
   .small {
     font-size: 0.86rem;
   }
-  .seg {
-    display: inline-flex;
-    padding: 3px;
-    border-radius: 9px;
-    background: var(--surface-2);
-  }
-  .seg button {
-    border: 0;
-    background: none;
-    padding: 4px 12px;
-    border-radius: 7px;
-    font-family: var(--mono);
-    font-size: 0.8rem;
-    color: var(--text-2);
-  }
-  .seg button.on {
-    background: var(--accent);
-    color: white;
+  .add {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 12px;
+    max-width: 320px;
   }
   .items {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 8px;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -130,10 +128,10 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 6px 4px 10px;
+    padding: 2px 4px 2px 10px;
     border-radius: 8px;
     background: rgba(63, 185, 80, 0.12);
-    border: 1px solid rgba(63, 185, 80, 0.35);
+    border: 1px solid rgba(63, 185, 80, 0.5);
     font-size: 0.84rem;
     font-weight: 600;
     animation: pop 0.25s var(--ease);
@@ -141,28 +139,31 @@
   .item em {
     font-style: normal;
     font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--text-3);
+    font-size: 0.74rem;
+    color: var(--text-2);
   }
   .item button {
     display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
     border: 0;
     background: none;
-    padding: 2px;
-    color: var(--text-3);
-    border-radius: 4px;
+    padding: 0;
+    color: var(--text-2);
+    border-radius: 6px;
   }
   .item button:hover {
-    color: var(--err);
+    color: var(--err-fg);
+    background: var(--err-soft);
   }
   @keyframes pop {
     from {
       transform: scale(0.6);
     }
   }
-  form .input {
-    width: 140px;
-    padding: 5px 9px;
+  .add .input {
+    flex: 1;
   }
   .grid {
     display: grid;
@@ -183,6 +184,10 @@
     font-size: 0.76rem;
     overflow: auto;
   }
+  .hcl:focus-visible {
+    outline: 2px solid #67e8f9;
+    outline-offset: -2px;
+  }
   .hcl code {
     background: none;
     border: 0;
@@ -199,11 +204,19 @@
     flex-direction: column;
     gap: 3px;
   }
+  .ops {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
   .op small {
-    color: #6b7590;
+    color: #a3adc2;
   }
   .op.noop {
-    color: #6b7590;
+    color: #a3adc2;
   }
   .op.create {
     color: #34d399;

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import WidgetFrame from './WidgetFrame.svelte';
   import Icon from '../Icon.svelte';
+  import { settings } from '../../stores/settings.svelte';
 
   const sources = [
     { id: 'internet', label: 'Internet user', ip: '198.51.100.7', internal: false },
@@ -61,7 +63,7 @@
     shown = 0;
     running = true;
     for (let i = 1; i <= hops.length; i++) {
-      await new Promise((r) => setTimeout(r, 420));
+      await new Promise((r) => setTimeout(r, settings.reduced ? 0 : 420));
       shown = i;
     }
     running = false;
@@ -70,45 +72,51 @@
   const final = $derived(!running && shown && shown === hops.length ? hops.every((h) => h.ok) : null);
 </script>
 
-<div class="wbox">
-  <div class="whead"><span class="wtag">Simulation</span><h4>Security groups vs network ACLs</h4></div>
+<WidgetFrame kind="Simulation" title="Security groups vs network ACLs">
   <div class="grid">
     <div>
-      <span class="eyebrow">Packet</span>
-      <div class="pick">
-        {#each sources as s}<button class:on={src === s.id} onclick={() => (src = s.id)}>{s.label}<small>{s.ip}</small></button>{/each}
+      <p class="eyebrow" id="sg-packet">Packet source</p>
+      <div class="pick" role="group" aria-labelledby="sg-packet">
+        {#each sources as s}<button aria-pressed={src === s.id} onclick={() => (src = s.id)}>{s.label}<small>{s.ip}</small></button>{/each}
       </div>
-      <div class="pick">
-        {#each ports as p}<button class:on={port === p.p} onclick={() => (port = p.p)}>{p.name}<small>tcp/{p.p}</small></button>{/each}
+      <p class="eyebrow" id="sg-port">Destination port</p>
+      <div class="pick" role="group" aria-labelledby="sg-port">
+        {#each ports as p}<button aria-pressed={port === p.p} onclick={() => (port = p.p)}>{p.name}<small>tcp/{p.p}</small></button>{/each}
       </div>
-      <span class="eyebrow">Rules</span>
-      <label class="tg"><input type="checkbox" bind:checked={naclBlockBad} /> NACL rule 90: DENY 203.0.113.0/24 inbound</label>
-      <label class="tg"><input type="checkbox" bind:checked={naclEphemeral} /> NACL outbound: ALLOW ephemeral ports 1024-65535</label>
-      <label class="tg"><input type="checkbox" bind:checked={sgHttps} /> SG inbound: ALLOW 443 from 0.0.0.0/0</label>
-      <label class="tg"><input type="checkbox" bind:checked={sgSsh} /> SG inbound: ALLOW 22 from bastion-sg</label>
+      <fieldset>
+        <legend class="eyebrow">Rules</legend>
+        <label class="tg"><input type="checkbox" bind:checked={naclBlockBad} /> NACL rule 90: DENY 203.0.113.0/24 inbound</label>
+        <label class="tg"><input type="checkbox" bind:checked={naclEphemeral} /> NACL outbound: ALLOW ephemeral ports 1024-65535</label>
+        <label class="tg"><input type="checkbox" bind:checked={sgHttps} /> SG inbound: ALLOW 443 from 0.0.0.0/0</label>
+        <label class="tg"><input type="checkbox" bind:checked={sgSsh} /> SG inbound: ALLOW 22 from bastion-sg</label>
+      </fieldset>
       <button class="btn primary sm send" onclick={send} disabled={running}><Icon name="play" size={14} /> Send packet</button>
     </div>
-    <div class="path">
-      {#each hops as h, i}
-        {#if i < shown}
-          <div class="hop fade-in" class:bad={!h.ok}>
-            <span class="ic"><Icon name={h.icon} size={16} /></span>
-            <div><strong>{h.name} {h.ok ? '✓' : '✗'}</strong><p>{h.why}</p></div>
-          </div>
-        {/if}
+    <div class="path" aria-live="polite">
+      {#if hops.length}
+        <ol class="hops" aria-label="Packet path">
+          {#each hops as h, i}
+            {#if i < shown}
+              <li class="hop fade-in" class:bad={!h.ok}>
+                <span class="ic"><Icon name={h.icon} size={16} /></span>
+                <div><strong>{h.name}: {h.ok ? 'passed' : 'blocked'}</strong><p>{h.why}</p></div>
+              </li>
+            {/if}
+          {/each}
+        </ol>
       {:else}
         <p class="faint">Choose a source and port, then send a packet to trace it through the subnet's NACL and the instance's security group.</p>
-      {/each}
+      {/if}
       {#if final !== null}
-        <div class="res fade-in" class:ok={final}>{final ? 'Round trip succeeded' : 'Traffic blocked'}</div>
+        <p class="res fade-in" class:ok={final}><Icon name={final ? 'circle-check' : 'circle-x'} size={16} /> {final ? 'Round trip succeeded' : 'Traffic blocked'}</p>
       {/if}
     </div>
   </div>
   <div class="cmp">
-    <div><strong>Security group</strong> — instance/ENI level · <em>stateful</em> · allow rules only · all rules evaluated</div>
-    <div><strong>Network ACL</strong> — subnet level · <em>stateless</em> · allow &amp; deny · numbered, first match wins</div>
+    <p><strong>Security group:</strong> instance/ENI level · <em>stateful</em> · allow rules only · all rules evaluated</p>
+    <p><strong>Network ACL:</strong> subnet level · <em>stateless</em> · allow and deny · numbered, first match wins</p>
   </div>
-</div>
+</WidgetFrame>
 
 <style>
   .grid {
@@ -142,13 +150,36 @@
   }
   .pick button small {
     font-family: var(--mono);
-    font-size: 0.68rem;
-    color: var(--text-3);
+    font-size: 0.7rem;
+    color: var(--text-2);
     font-weight: 400;
   }
-  .pick button.on {
-    border-color: var(--accent);
+  .pick button {
+    border-color: var(--border-strong);
+  }
+  .pick button[aria-pressed='true'] {
+    border: 2px solid var(--accent-strong);
     background: var(--accent-soft);
+  }
+  .eyebrow {
+    margin: 0;
+  }
+  fieldset {
+    border: 0;
+    margin: 6px 0 0;
+    padding: 0;
+    min-width: 0;
+  }
+  legend {
+    padding: 0;
+  }
+  .hops {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
   .tg {
     display: flex;
@@ -157,9 +188,6 @@
     font-size: 0.8rem;
     color: var(--text-2);
     margin: 5px 0;
-  }
-  .tg input {
-    accent-color: var(--accent);
   }
   .send {
     margin-top: 10px;
@@ -194,12 +222,16 @@
     padding-top: 2px;
   }
   .res {
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
     font-weight: 700;
     padding: 8px;
     border-radius: 10px;
-    background: var(--err);
-    color: white;
+    background: var(--err-strong);
+    color: #ffffff;
   }
   .res.ok {
     background: var(--ok);
@@ -213,7 +245,8 @@
     font-size: 0.8rem;
     color: var(--text-2);
   }
-  .cmp div {
+  .cmp p {
+    margin: 0;
     padding: 9px 11px;
     border-radius: 10px;
     background: var(--surface-2);

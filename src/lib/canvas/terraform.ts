@@ -1,7 +1,7 @@
 import { Graph, type GNode } from './graph';
 
 // Converts the diagram into idiomatic (simplified) Terraform for the AWS provider.
-// Goal: show how boxes & arrows map to resources & references — not to be a production module.
+// Goal: show how boxes & arrows map to resources & references, not to be a production module.
 
 export interface TfFile {
   name: string;

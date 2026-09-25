@@ -1,6 +1,8 @@
 <script lang="ts">
+  import WidgetFrame from './WidgetFrame.svelte';
   import Range from '../ui/Range.svelte';
   import Icon from '../Icon.svelte';
+  import { settings } from '../../stores/settings.svelte';
 
   const CAP = 4; // pods per node (think: CPU requests)
   type Node = { id: number; up: boolean };
@@ -11,6 +13,8 @@
   let nodes = $state<Node[]>([{ id: 1, up: true }, { id: 2, up: true }, { id: 3, up: true }]);
   let pods = $state<Pod[]>([]);
   let events = $state<string[]>([]);
+  // The control loop auto-updates, so it can be paused (WCAG 2.2.2).
+  let running = $state(!settings.reduced);
   let pid = 1;
   let nid = 4;
 
@@ -25,7 +29,7 @@
     const lost = pods.filter((p) => p.node !== null && dead.has(p.node));
     if (lost.length) {
       pods = pods.filter((p) => !lost.includes(p));
-      ev(`${lost.length} pod(s) lost with node — ReplicaSet recreating`);
+      ev(`${lost.length} pod(s) lost with the node. The ReplicaSet is recreating them.`);
     }
     // 3. Creating → Running.
     pods = pods.map((p) => (p.st === 'Creating' ? { ...p, st: 'Running' } : p));
@@ -44,7 +48,7 @@
     if (old && pods.every((p) => p.st === 'Running' || p.ver !== version)) {
       pods = pods.map((p) => (p === old ? { ...p, st: 'Terminating' } : p));
       pods.push({ id: pid++, node: null, ver: version, st: 'Pending' });
-      ev(`Rolling update: replacing pod-${old.id} (v${old.ver} → v${version})`);
+      ev(`Rolling update: replacing pod-${old.id} (v${old.ver} to v${version})`);
     }
     // 6. Schedule pending pods onto the least-loaded ready node.
     for (const p of pods) {
@@ -59,13 +63,14 @@
   }
 
   $effect(() => {
+    if (!running) return;
     const t = setInterval(tick, 700);
     return () => clearInterval(t);
   });
 
   function toggleNode(n: Node) {
     n.up = !n.up;
-    ev(n.up ? `node-${n.id} is Ready` : `node-${n.id} NotReady — evicting pods`);
+    ev(n.up ? `node-${n.id} is Ready` : `node-${n.id} is NotReady, so its pods will be evicted`);
   }
   function addNode() {
     nodes.push({ id: nid++, up: true });
@@ -76,19 +81,21 @@
     if (!n || nodes.length <= 1) return;
     nodes = nodes.slice(0, -1);
     pods = pods.map((p) => (p.node === n.id ? { ...p, node: null, st: 'Pending' } : p));
-    ev(`node-${n.id} drained & removed`);
+    ev(`node-${n.id} drained and removed`);
   }
   function rollout() {
     version++;
-    ev(`kubectl set image → v${version}: rolling update started`);
+    ev(`kubectl set image to v${version}: rolling update started`);
   }
 
   const pending = $derived(pods.filter((p) => p.st === 'Pending').length);
-  const running = $derived(pods.filter((p) => p.st === 'Running').length);
+  const runningPods = $derived(pods.filter((p) => p.st === 'Running').length);
 </script>
 
-<div class="wbox">
-  <div class="whead"><span class="wtag">Simulation</span><h4>Kubernetes scheduler playground</h4></div>
+<WidgetFrame kind="Simulation" title="Kubernetes scheduler playground">
+  {#snippet actions()}
+    <button class="btn sm" onclick={() => (running = !running)}><Icon name={running ? 'pause' : 'play'} size={14} /> {running ? 'Pause' : 'Resume'}<span class="sr-only"> cluster simulation</span></button>
+  {/snippet}
   <div class="ctlrow">
     <div class="grow"><Range label="Deployment replicas" bind:value={replicas} min={0} max={16} /></div>
     <button class="btn sm" onclick={rollout}><Icon name="refresh-cw" size={14} /> Roll out v{version + 1}</button>
@@ -97,23 +104,24 @@
   </div>
 
   <div class="svc">
-    <Icon name="split" size={16} /> <strong>Service</strong> <span class="faint">my-app · load-balances to {running} ready pod{running === 1 ? '' : 's'}</span>
+    <Icon name="split" size={16} /> <strong>Service</strong> <span class="muted">my-app load-balances to {runningPods} ready pod{runningPods === 1 ? '' : 's'}</span>
     <span class="spacer"></span>
-    <span class="chip">{running} Running</span>
+    <span class="chip">{runningPods} Running</span>
     {#if pending}<span class="chip warn">{pending} Pending</span>{/if}
+    {#if !running}<span class="chip">Paused</span>{/if}
   </div>
 
-  <div class="nodes">
+  <ul class="nodes" aria-label="Cluster nodes">
     {#each nodes as n (n.id)}
-      <div class="node" class:down={!n.up}>
+      <li class="node" class:down={!n.up}>
         <header>
           <Icon name="server" size={15} /> node-{n.id}
           <span class="spacer"></span>
-          <button class="btn sm ghost" onclick={() => toggleNode(n)} title={n.up ? 'Simulate node failure' : 'Recover node'}>
+          <button class="btn sm ghost kill" onclick={() => toggleNode(n)} aria-label={n.up ? `Simulate failure of node-${n.id}` : `Recover node-${n.id}`} title={n.up ? 'Simulate node failure' : 'Recover node'}>
             <Icon name={n.up ? 'skull' : 'refresh-cw'} size={14} />
           </button>
         </header>
-        <div class="slots">
+        <div class="slots" aria-hidden="true">
           {#each Array(CAP) as _, s}
             {@const p = pods.filter((p) => p.node === n.id)[s]}
             <div class="slot">
@@ -125,22 +133,26 @@
             </div>
           {/each}
         </div>
-        <footer>{n.up ? `${load(n.id)}/${CAP} pods` : 'NotReady'}</footer>
-      </div>
+        <footer>{n.up ? `${load(n.id)} of ${CAP} pod slots used` : 'NotReady'}</footer>
+      </li>
     {/each}
-  </div>
+  </ul>
 
   {#if pending}
     <div class="pend">
-      {#each pods.filter((p) => p.st === 'Pending') as p (p.id)}
-        <span class="pod pending v{p.ver % 3}"><Icon name="box" size={13} /></span>
-      {/each}
-      <span class="faint">Pending: no node has free capacity. Add a node (or let the Cluster Autoscaler / Karpenter do it).</span>
+      <span class="pp" aria-hidden="true">
+        {#each pods.filter((p) => p.st === 'Pending') as p (p.id)}
+          <span class="pod pending v{p.ver % 3}"><Icon name="box" size={13} /></span>
+        {/each}
+      </span>
+      <span>{pending} pod{pending === 1 ? ' is' : 's are'} Pending: no node has free capacity. Add a node, or let the Cluster Autoscaler or Karpenter do it.</span>
     </div>
   {/if}
 
-  <ul class="log">{#each events as e, i (e + i)}<li>{e}</li>{/each}</ul>
-</div>
+  <div role="log" aria-label="Cluster events">
+    <ul class="log">{#each events as e, i (e + i)}<li>{e}</li>{/each}</ul>
+  </div>
+</WidgetFrame>
 
 <style>
   .ctlrow {
@@ -162,18 +174,21 @@
     gap: 8px;
     padding: 9px 12px;
     border-radius: 10px;
-    background: rgba(34, 211, 238, 0.08);
-    border: 1px solid rgba(34, 211, 238, 0.3);
-    font-size: 0.85rem;
+    background: var(--accent-2-soft);
+    border: 1px solid color-mix(in srgb, var(--accent-2-fg) 35%, transparent);
+    font-size: 0.86rem;
     margin-bottom: 12px;
     flex-wrap: wrap;
   }
   .chip.warn {
-    color: var(--warn);
+    color: var(--warn-fg);
   }
   .nodes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 10px;
   }
   .node {
@@ -182,13 +197,16 @@
     background: var(--surface);
     padding: 8px;
     transition:
-      opacity 0.3s,
+      background 0.3s,
       border-color 0.3s;
   }
   .node.down {
-    opacity: 0.5;
-    border-color: var(--err);
+    border: 1px dashed var(--err);
     background: var(--err-soft);
+  }
+  .node.down footer {
+    color: var(--err-fg);
+    font-weight: 700;
   }
   .node header {
     display: flex;
@@ -197,6 +215,10 @@
     font-size: 0.8rem;
     font-weight: 700;
     font-family: var(--mono);
+  }
+  .kill {
+    min-width: 30px;
+    padding: 5px;
   }
   .slots {
     display: grid;
@@ -207,7 +229,7 @@
   .slot {
     height: 36px;
     border-radius: 8px;
-    border: 1px dashed var(--border);
+    border: 1px dashed var(--border-strong);
   }
   .pod {
     height: 100%;
@@ -216,23 +238,24 @@
     justify-content: center;
     gap: 4px;
     border-radius: 8px;
-    font-size: 0.72rem;
+    font-size: 0.74rem;
     font-weight: 700;
-    color: white;
-    background: #326ce5;
+    color: #ffffff;
+    background: #2f5fc9;
     animation: pop 0.3s var(--ease);
   }
   .pod.v2 {
-    background: #8b5cf6;
+    background: #6d28d9;
   }
   .pod.v0 {
-    background: #0ea5e9;
+    background: #0369a1;
   }
   .pod.creating {
-    opacity: 0.55;
+    outline: 2px dashed #ffffff;
+    outline-offset: -4px;
   }
   .pod.terminating {
-    opacity: 0.3;
+    opacity: 0.45;
     transform: scale(0.85);
     transition: all 0.4s;
   }
@@ -240,8 +263,8 @@
     width: 30px;
     height: 30px;
     display: inline-flex;
-    opacity: 0.6;
-    border: 1px dashed white;
+    outline: 2px dashed #ffffff;
+    outline-offset: -4px;
   }
   @keyframes pop {
     from {
@@ -249,28 +272,32 @@
     }
   }
   .node footer {
-    font-size: 0.72rem;
-    color: var(--text-3);
+    font-size: 0.74rem;
+    color: var(--text-2);
     text-align: right;
   }
   .pend {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
     margin-top: 12px;
     padding: 8px 10px;
     border-radius: 10px;
     background: var(--warn-soft);
-    font-size: 0.8rem;
+    font-size: 0.82rem;
+  }
+  .pp {
+    display: inline-flex;
+    gap: 4px;
   }
   .log {
     list-style: none;
     padding: 0;
     margin: 12px 0 0;
     font-family: var(--mono);
-    font-size: 0.74rem;
-    color: var(--text-3);
+    font-size: 0.76rem;
+    color: var(--text-2);
   }
   .log li:first-child {
     color: var(--text);

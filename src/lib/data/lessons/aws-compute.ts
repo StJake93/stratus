@@ -16,7 +16,7 @@ export const AWS_COMPUTE: Lesson[] = [
         title: 'Code that runs on events',
         blocks: [
           text(
-            '**AWS Lambda** runs your code in response to events — an HTTP request, a file landing in S3, a message on a queue, a schedule. You upload a function; AWS handles servers, scaling, patching and availability across AZs.',
+            '**AWS Lambda** runs your code in response to events: an HTTP request, a file landing in S3, a message on a queue, a schedule. You upload a function; AWS handles servers, scaling, patching and availability across AZs.',
             '',
             'You pay per request and per **GB-second** of execution (memory × duration). Idle functions cost nothing.'
           ),
@@ -27,7 +27,7 @@ table = boto3.resource("dynamodb").Table(os.environ["ORDERS_TABLE"])  # init: ru
 def handler(event, context):                                        # runs on every invocation
     order = json.loads(event["body"])
     table.put_item(Item={"pk": order["id"], **order})
-    return {"statusCode": 201, "body": json.dumps({"ok": True})}`, 'app.py', 'Code outside the handler runs once per execution environment and is reused — put SDK clients there.'),
+    return {"statusCode": 201, "body": json.dumps({"ok": True})}`, 'app.py', 'Code outside the handler runs once per execution environment and is reused, so put SDK clients there.'),
           terms(['Handler', 'The function Lambda calls with the `event` and `context`.'], ['Runtime', 'Managed language environment (Python, Node.js, Java, .NET, Ruby) or a custom runtime / container image.'], ['Execution role', 'The IAM role the function assumes to call other AWS services.'], ['Layer', 'A zip of shared libraries attached to many functions.'])
         ]
       },
@@ -35,7 +35,7 @@ def handler(event, context):                                        # runs on ev
         title: 'Triggers: how functions get invoked',
         blocks: [
           tabs(
-            ['Synchronous', [text('The caller waits for the result.', '', '- **API Gateway**, **ALB**, Function URLs', '- CloudFront (Lambda@Edge)', '- Direct `Invoke` from SDK/CLI'), info('Errors go straight back to the caller — they decide whether to retry.')]],
+            ['Synchronous', [text('The caller waits for the result.', '', '- **API Gateway**, **ALB**, Function URLs', '- CloudFront (Lambda@Edge)', '- Direct `Invoke` from SDK/CLI'), info('Errors go straight back to the caller, who decides whether to retry.')]],
             ['Asynchronous', [text('Lambda queues the event and returns immediately.', '', '- **S3** event notifications', '- **SNS**, **EventBridge** rules & schedules'), tip('Lambda retries async failures twice. Configure an **on-failure destination** or DLQ so failed events aren’t silently lost.')]],
             ['Poll-based (event source mappings)', [text('Lambda polls a stream or queue and invokes you with **batches**.', '', '- **SQS** queues', '- **DynamoDB Streams**, **Kinesis**, Kafka'), warn('With SQS, if a batch fails, the whole batch returns to the queue. Enable **partial batch responses** so only failed messages are retried.')]]
           ),
@@ -45,7 +45,7 @@ def handler(event, context):                                        # runs on ev
               { id: 's3', label: 'S3 upload', x: 10, y: 50, icon: 's3' },
               { id: 'sqs', label: 'SQS', x: 10, y: 82, icon: 'sqs' },
               { id: 'eb', label: 'EventBridge', x: 34, y: 92, icon: 'eventbridge' },
-              { id: 'fn', label: 'Lambda', x: 50, y: 50, icon: 'lambda', note: 'The same function code can be wired to many triggers — each delivers a differently-shaped `event` object.' },
+              { id: 'fn', label: 'Lambda', x: 50, y: 50, icon: 'lambda', note: 'The same function code can be wired to many triggers, and each delivers a differently-shaped `event` object.' },
               { id: 'db', label: 'DynamoDB', x: 84, y: 25, icon: 'dynamodb' },
               { id: 'sns', label: 'SNS', x: 84, y: 75, icon: 'sns' }
             ],
@@ -65,7 +65,7 @@ def handler(event, context):                                        # runs on ev
         title: 'Lifecycle, cold starts & concurrency',
         blocks: [
           carousel(
-            ['Init (cold start)', [text('On the first request (or when scaling out), Lambda creates a new **execution environment**: downloads your code, starts the runtime and runs your init code. This adds latency — typically 100 ms to a few seconds depending on runtime and package size.')]],
+            ['Init (cold start)', [text('On the first request (or when scaling out), Lambda creates a new **execution environment**: downloads your code, starts the runtime and runs your init code. This adds latency, typically 100 ms to a few seconds depending on runtime and package size.')]],
             ['Invoke (warm)', [text('Subsequent requests reuse the warm environment. Each environment handles **one request at a time**; concurrent requests get more environments.')]],
             ['Shutdown', [text('Idle environments are eventually frozen and reclaimed. You never control exactly when.')]],
             ['Taming cold starts', [text('- Keep deployment packages small; lazy-load heavy libraries', '- Prefer lighter runtimes (Node.js, Python) for latency-sensitive APIs', '- **Provisioned concurrency** keeps N environments pre-initialised', '- **SnapStart** (Java, Python, .NET) snapshots the initialised environment')]]
@@ -119,7 +119,7 @@ resource "aws_cloudwatch_log_group" "orders" {
             q('Where should you create an SDK client in a Lambda function?', ['Inside the handler, every call', 'Outside the handler, in init code', 'In a Lambda layer only', 'It doesn’t matter'], 1, 'Init code runs once per environment and is reused by warm invocations.'),
             q('Traffic is 500 req/s with 200 ms average duration. Roughly how many concurrent executions?', ['50', '100', '500', '2,500'], 1, 'Concurrency ≈ 500 × 0.2 s = 100.'),
             q('An S3-triggered function fails twice after retries. How do you avoid losing the event?', ['Increase memory', 'Configure an on-failure destination or DLQ', 'Use provisioned concurrency', 'Switch to x86'], 1, 'Async invocations need a failure destination to capture events that exhaust retries.'),
-            q('A job takes 40 minutes. Is Lambda suitable?', ['Yes, with 10 GB memory', 'No — max timeout is 15 minutes', 'Yes, with provisioned concurrency', 'Only in us-east-1'], 1, 'Split the work (Step Functions) or use ECS/Fargate or AWS Batch.')
+            q('A job takes 40 minutes. Is Lambda suitable?', ['Yes, with 10 GB memory', 'No, because the maximum timeout is 15 minutes', 'Yes, with provisioned concurrency', 'Only in us-east-1'], 1, 'Split the work (Step Functions) or use ECS/Fargate or AWS Batch.')
           ]),
           challenge('scheduled-job', 'Build a nightly report job: EventBridge schedule → Lambda → S3, with a CloudWatch alarm that pages on-call.'),
           docs(['What is AWS Lambda?', AWS + '/lambda/latest/dg/welcome.html'], ['Lambda execution environment', AWS + '/lambda/latest/dg/lambda-runtime-environment.html'], ['Lambda concurrency', AWS + '/lambda/latest/dg/lambda-concurrency.html'], ['Lambda quotas', AWS + '/lambda/latest/dg/gettingstarted-limits.html'], ['Terraform: aws_lambda_function', 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function'])
@@ -133,7 +133,7 @@ resource "aws_cloudwatch_log_group" "orders" {
     id: 'aws-apigw',
     track: 'aws-compute',
     title: 'API Gateway & serverless APIs',
-    summary: 'HTTP vs REST APIs, integrations, auth, throttling — and the canonical serverless stack.',
+    summary: 'HTTP vs REST APIs, integrations, auth, throttling, and the canonical serverless stack.',
     icon: 'webhook',
     minutes: 12,
     level: 'Beginner',
@@ -141,7 +141,7 @@ resource "aws_cloudwatch_log_group" "orders" {
       {
         title: 'The front door for your APIs',
         blocks: [
-          text('**Amazon API Gateway** is a fully managed service for publishing APIs. It handles TLS, routing, authorisation, throttling, CORS and request validation, then forwards requests to an **integration** — usually Lambda.'),
+          text('**Amazon API Gateway** is a fully managed service for publishing APIs. It handles TLS, routing, authorisation, throttling, CORS and request validation, then forwards requests to an **integration**, usually Lambda.'),
           table(
             ['', 'HTTP API', 'REST API', 'WebSocket API'],
             ['Best for', 'Most new APIs', 'Advanced API management', 'Real-time, two-way apps'],
@@ -158,9 +158,9 @@ resource "aws_cloudwatch_log_group" "orders" {
           diagram(
             [
               { id: 'u', label: 'Mobile / web', x: 7, y: 50, icon: 'users' },
-              { id: 'cog', label: 'Cognito', x: 30, y: 15, icon: 'cognito', note: 'Users sign in with **Cognito** and receive a JWT. API Gateway validates the token on every request — no auth code in your function.' },
+              { id: 'cog', label: 'Cognito', x: 30, y: 15, icon: 'cognito', note: 'Users sign in with **Cognito** and receive a JWT. API Gateway validates the token on every request, so there is no auth code in your function.' },
               { id: 'api', label: 'API Gateway', x: 30, y: 60, icon: 'apigw', note: 'Routes like `GET /orders/{id}` map to integrations. Throttling protects your backend from floods.' },
-              { id: 'fn', label: 'Lambda', x: 58, y: 60, icon: 'lambda', note: 'Business logic. One function per route, or one “monolith” function with an internal router — both are common.' },
+              { id: 'fn', label: 'Lambda', x: 58, y: 60, icon: 'lambda', note: 'Business logic. One function per route, or one “monolith” function with an internal router. Both are common.' },
               { id: 'db', label: 'DynamoDB', x: 86, y: 40, icon: 'dynamodb', note: 'Pay-per-request tables scale instantly with spiky API traffic.' },
               { id: 'cw', label: 'CloudWatch', x: 86, y: 85, icon: 'cloudwatch', note: 'Access logs from API Gateway + function logs + metrics and alarms.' }
             ],
@@ -205,7 +205,7 @@ resource "aws_lambda_permission" "apigw" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "\${aws_apigatewayv2_api.orders.execution_arn}/*/*"
 }`, 'api.tf'),
-          mistake('Forgetting the `aws_lambda_permission`. API Gateway returns **500 Internal Server Error** because it isn’t allowed to invoke your function — the resource-based policy on the function is missing.')
+          mistake('Forgetting the `aws_lambda_permission`. API Gateway returns **500 Internal Server Error** because it isn’t allowed to invoke your function: the resource-based policy on the function is missing.')
         ]
       },
       {
@@ -235,7 +235,7 @@ resource "aws_lambda_permission" "apigw" {
     id: 'aws-ecr',
     track: 'aws-compute',
     title: 'ECR: container registry',
-    summary: 'Store, scan and version container images — and push them from CI.',
+    summary: 'Store, scan and version container images, and push them from CI.',
     icon: 'package',
     minutes: 10,
     level: 'Beginner',
@@ -244,10 +244,10 @@ resource "aws_lambda_permission" "apigw" {
         title: 'Your private image registry',
         blocks: [
           text('**Amazon Elastic Container Registry (ECR)** is a fully managed Docker/OCI registry. ECS, EKS, Lambda, App Runner and your laptop all pull images from it using IAM for authentication.'),
-          terms(['Registry', 'One per account per region: `<account>.dkr.ecr.<region>.amazonaws.com`.'], ['Repository', 'Holds all versions of one image, e.g. `orders-api`.'], ['Tag', 'A human label like `1.4.2` or `latest` pointing at an image.'], ['Digest', 'The immutable content hash `sha256:…` — the true identity of an image.']),
+          terms(['Registry', 'One per account per region: `<account>.dkr.ecr.<region>.amazonaws.com`.'], ['Repository', 'Holds all versions of one image, e.g. `orders-api`.'], ['Tag', 'A human label like `1.4.2` or `latest` pointing at an image.'], ['Digest', 'The immutable content hash `sha256:…`, the true identity of an image.']),
           cards(
             { title: 'Image scanning', icon: 'search', color: '#f25f5c', md: 'Scan on push for CVEs; **enhanced scanning** with Amazon Inspector re-scans continuously.' },
-            { title: 'Lifecycle policies', icon: 'trash', color: '#94a3b8', md: 'Expire untagged images or keep only the last N — registries fill up fast.' },
+            { title: 'Lifecycle policies', icon: 'trash', color: '#94a3b8', md: 'Expire untagged images or keep only the last N. Registries fill up fast.' },
             { title: 'Replication', icon: 'earth', color: '#22b8cf', md: 'Replicate images cross-region / cross-account for DR and multi-region deploys.' },
             { title: 'Pull-through cache', icon: 'download', color: '#3fb950', md: 'Cache public images (Docker Hub, GHCR) in ECR to avoid rate limits.' }
           )
@@ -290,7 +290,7 @@ resource "aws_ecr_lifecycle_policy" "orders" {
   })
 }`, 'ecr.tf'),
           tip('Use **immutable tags** and deploy by version (or digest), never `latest`. Then “what’s running in prod?” always has a precise answer, and rollbacks are just redeploying the previous tag.'),
-          warn('Building on an Apple Silicon Mac produces `arm64` images by default. If your ECS tasks or EKS nodes are x86, build with `--platform linux/amd64` — or run Graviton for better price/performance.')
+          warn('Building on an Apple Silicon Mac produces `arm64` images by default. If your ECS tasks or EKS nodes are x86, build with `--platform linux/amd64`, or run Graviton for better price/performance.')
         ]
       },
       {
@@ -312,7 +312,7 @@ resource "aws_ecr_lifecycle_policy" "orders" {
     id: 'aws-ecs',
     track: 'aws-compute',
     title: 'ECS & Fargate',
-    summary: 'Clusters, task definitions and services — run containers without managing servers.',
+    summary: 'Clusters, task definitions and services: run containers without managing servers.',
     icon: 'boxes',
     minutes: 15,
     level: 'Intermediate',
@@ -320,11 +320,11 @@ resource "aws_ecr_lifecycle_policy" "orders" {
       {
         title: 'ECS building blocks',
         blocks: [
-          text('**Amazon Elastic Container Service (ECS)** is AWS’s own container orchestrator — simpler than Kubernetes and deeply integrated with IAM, ALB, CloudWatch and Secrets Manager.'),
+          text('**Amazon Elastic Container Service (ECS)** is AWS’s own container orchestrator: simpler than Kubernetes and deeply integrated with IAM, ALB, CloudWatch and Secrets Manager.'),
           accordion(
-            ['Cluster', [text('A logical grouping of capacity. With **Fargate** there are no servers in it at all — it’s just a namespace.')]],
+            ['Cluster', [text('A logical grouping of capacity. With **Fargate** there are no servers in it at all; it’s just a namespace.')]],
             ['Task definition', [text('A versioned blueprint (like a docker-compose file): image, CPU/memory, ports, env vars, secrets, IAM roles, log config.')]],
-            ['Task', [text('A running instance of a task definition — one or more containers scheduled together.')]],
+            ['Task', [text('A running instance of a task definition: one or more containers scheduled together.')]],
             ['Service', [text('Keeps **N tasks** running, replaces failed ones, performs rolling deployments and registers tasks with a load balancer target group.')]],
             ['Capacity provider', [text('Where tasks run: **Fargate** (serverless), **Fargate Spot** (up to 70% cheaper, interruptible), or EC2 Auto Scaling groups you manage.')]]
           ),
@@ -376,7 +376,7 @@ resource "aws_ecr_lifecycle_policy" "orders" {
       {
         title: 'Services, networking & deployments',
         blocks: [
-          text('With the `awsvpc` network mode each task gets **its own ENI and private IP** in your subnets — and its own security group. The ALB target group uses `target_type = "ip"`.'),
+          text('With the `awsvpc` network mode each task gets **its own ENI and private IP** in your subnets, and its own security group. The ALB target group uses `target_type = "ip"`.'),
           code('hcl', `resource "aws_ecs_service" "api" {
   name            = "orders-api"
   cluster         = aws_ecs_cluster.main.id
@@ -437,13 +437,13 @@ resource "aws_ecr_lifecycle_policy" "orders" {
       {
         title: 'What EKS manages (and what it doesn’t)',
         blocks: [
-          text('**Amazon EKS** runs a certified, upstream Kubernetes control plane for you — API servers and etcd spread across three AZs, patched and scaled by AWS. You choose how worker capacity is provided.'),
+          text('**Amazon EKS** runs a certified, upstream Kubernetes control plane for you, with API servers and etcd spread across three AZs, patched and scaled by AWS. You choose how worker capacity is provided.'),
           table(
             ['Option', 'You manage', 'Good for'],
-            ['**EKS Auto Mode**', 'Almost nothing — AWS manages nodes, scaling, core add-ons', 'Teams wanting K8s without node ops'],
+            ['**EKS Auto Mode**', 'Almost nothing: AWS manages nodes, scaling and core add-ons', 'Teams wanting K8s without node ops'],
             ['**Managed node groups**', 'Choose instance types; AWS handles provisioning & updates', 'Most production clusters'],
             ['**Karpenter**', 'NodePool rules; Karpenter launches right-sized nodes on demand', 'Cost-efficient, bursty workloads'],
-            ['**Fargate profiles**', 'Nothing — one micro-VM per pod', 'Isolated, low-ops workloads (no DaemonSets)'],
+            ['**Fargate profiles**', 'Nothing: one micro-VM per pod', 'Isolated, low-ops workloads (no DaemonSets)'],
             ['Self-managed nodes', 'Everything', 'Special AMIs / edge cases']
           ),
           info('EKS has a per-cluster hourly fee on top of compute. Many organisations run a few shared clusters rather than one per team.')
@@ -453,7 +453,7 @@ resource "aws_ecr_lifecycle_policy" "orders" {
         title: 'AWS integrations that make EKS work',
         blocks: [
           accordion(
-            ['VPC CNI: pods get VPC IPs', [text('The **Amazon VPC CNI** plugin gives every pod an IP from your subnet. Pods are first-class VPC citizens (security groups for pods, direct routing) — but they **consume IPs fast**. Size private subnets generously (/19 or /20) or enable prefix delegation.')]],
+            ['VPC CNI: pods get VPC IPs', [text('The **Amazon VPC CNI** plugin gives every pod an IP from your subnet. Pods are first-class VPC citizens (security groups for pods, direct routing), but they **consume IPs fast**. Size private subnets generously (/19 or /20) or enable prefix delegation.')]],
             ['Pod-level IAM', [text('Never give nodes broad IAM permissions. Use **EKS Pod Identity** (or the older **IRSA**) to map a Kubernetes service account to an IAM role, so each workload gets only what it needs.'), code('hcl', `resource "aws_eks_pod_identity_association" "orders" {
   cluster_name    = aws_eks_cluster.main.name
   namespace       = "orders"
@@ -477,7 +477,7 @@ spec:
             pathType: Prefix
             backend:
               service: { name: orders-api, port: { number: 80 } }`, 'ingress.yaml')]],
-            ['Access control', [text('**EKS access entries** map IAM principals to Kubernetes permissions — managed through the EKS API (and Terraform) instead of hand-editing the old `aws-auth` ConfigMap.')]],
+            ['Access control', [text('**EKS access entries** map IAM principals to Kubernetes permissions, managed through the EKS API (and Terraform) instead of hand-editing the old `aws-auth` ConfigMap.')]],
             ['Add-ons', [text('Managed add-ons keep core components (VPC CNI, CoreDNS, kube-proxy, EBS CSI driver, Pod Identity agent) versioned and patched.')]]
           ),
           tip('Subnet tags matter: tag public subnets `kubernetes.io/role/elb = 1` and private subnets `kubernetes.io/role/internal-elb = 1` so the load balancer controller knows where to place ALBs.')
@@ -521,7 +521,7 @@ resource "aws_eks_node_group" "general" {
             q('Pods keep failing to schedule with “insufficient IP addresses”. Likely cause?', ['CoreDNS crash', 'Subnets too small for VPC CNI pod IPs', 'IAM role missing', 'Wrong Kubernetes version'], 1, 'Each pod consumes a VPC IP. Use larger subnets or prefix delegation.'),
             q('How should a pod get permission to read one S3 bucket?', ['Node instance role with S3 full access', 'Access keys in a Kubernetes Secret', 'EKS Pod Identity / IRSA mapping its service account to a scoped IAM role', 'Make the bucket public'], 2, 'Pod-level IAM gives least privilege per workload.'),
             q('Which component turns a Kubernetes Ingress into an ALB?', ['kube-proxy', 'AWS Load Balancer Controller', 'Karpenter', 'CoreDNS'], 1, 'The controller reconciles Ingress objects into ALBs.'),
-            q('What does EKS manage for you?', ['Your pods', 'The Kubernetes control plane', 'Your Helm charts', 'Your container images'], 1, 'API servers and etcd across AZs — plus nodes too, if you use Auto Mode.')
+            q('What does EKS manage for you?', ['Your pods', 'The Kubernetes control plane', 'Your Helm charts', 'Your container images'], 1, 'API servers and etcd across AZs, plus nodes too if you use Auto Mode.')
           ]),
           challenge('eks-platform', 'Lay the AWS foundation for a production EKS platform: multi-AZ VPC, private nodes, ECR, ALB ingress and CloudWatch.'),
           docs(['What is Amazon EKS?', AWS + '/eks/latest/userguide/what-is-eks.html'], ['EKS Auto Mode', AWS + '/eks/latest/userguide/automode.html'], ['EKS Pod Identity', AWS + '/eks/latest/userguide/pod-identities.html'], ['AWS Load Balancer Controller', AWS + '/eks/latest/userguide/aws-load-balancer-controller.html'], ['EKS Best Practices Guide', AWS + '/eks/latest/best-practices/introduction.html'])

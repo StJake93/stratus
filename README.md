@@ -1,4 +1,4 @@
-# Stratus — cloud infrastructure lab
+# Stratus: cloud infrastructure lab
 
 An interactive, browser-based learning tool for cloud infrastructure and DevOps. It goes from first principles to dragging AWS building blocks onto a canvas, with live architecture validation and Terraform export.
 
@@ -34,7 +34,12 @@ npm install
 npm run dev      # http://localhost:5173
 npm run check    # type-check
 npm run build    # production build in dist/
+npm run audit:contrast   # WCAG contrast check for the colour tokens
 ```
+
+## Accessibility
+
+Stratus targets WCAG 2.2 AA in both themes, with full keyboard support (including keyboard alternatives to dragging on the canvas), screen reader announcements, reduced motion and pausable simulations. See [ACCESSIBILITY.md](ACCESSIBILITY.md) for what is checked, how to run the audits, and known limitations.
 
 ## Project layout
 
@@ -45,7 +50,9 @@ src/
     components/      # UI kit (ui/), interactive widgets (widgets/), Blocks renderer
     canvas/          # board store, graph model, validator, Terraform generator, nodes/panels
     pages/           # Home, Track, Lesson, Play, Scenarios, Compare, Provider, Progress
-    stores/          # router, progress (XP/badges), settings, toasts
+    stores/          # router, progress (XP/badges), settings, toasts, announcer
+  dev/               # accessibility and diagram layout audits (dev server only)
+scripts/             # contrast audit
 ```
 
 ### Adding content

@@ -9,7 +9,7 @@
   const levels = ['Beginner', 'Intermediate', 'Advanced'] as const;
   let filter = $state<string>('All');
   const list = $derived(filter === 'All' ? SCENARIOS : SCENARIOS.filter((s) => s.difficulty === filter));
-  const color = { Beginner: 'var(--ok)', Intermediate: 'var(--warn)', Advanced: 'var(--err)' };
+  const color = { Beginner: 'var(--ok-fg)', Intermediate: 'var(--warn-fg)', Advanced: 'var(--err-fg)' };
 </script>
 
 <div class="page">
@@ -17,8 +17,8 @@
     <span class="eyebrow">Guided builds</span>
     <h1>Scenarios</h1>
     <p class="muted lead">Real-world briefs to solve on the canvas. Each one has goals that are checked live as you build, hints if you get stuck, and a debrief explaining why the architecture works. Finishing without hints earns bonus XP.</p>
-    <div class="filters">
-      {#each ['All', ...levels] as l}<button class:on={filter === l} onclick={() => (filter = l)}>{l}</button>{/each}
+    <div class="filters" role="group" aria-label="Filter by difficulty">
+      {#each ['All', ...levels] as l}<button aria-pressed={filter === l} onclick={() => (filter = l)}>{l}</button>{/each}
       <span class="spacer"></span>
       <span class="chip"><Icon name="trophy" size={13} /> {Object.keys(progress.d.scenarios).length}/{SCENARIOS.length} complete</span>
     </div>
@@ -29,11 +29,11 @@
       {@const done = progress.scenarioDone(s.id)}
       <a class="scn fade-in" class:done href={href.play(s.id)} style:--dc={color[s.difficulty]} style:animation-delay="{i * 40}ms">
         <div class="top">
-          <span class="ic"><Icon name={s.icon} size={22} /></span>
+          <span class="ic" aria-hidden="true"><Icon name={s.icon} size={22} /></span>
           <span class="lvl">{s.difficulty}</span>
-          {#if done}<span class="ok"><Icon name="circle-check" size={18} /></span>{/if}
+          {#if done}<span class="ok"><Icon name="circle-check" size={18} /> <span class="sr-only">Completed</span></span>{/if}
         </div>
-        <h3>{s.title}</h3>
+        <h2 class="st">{s.title}</h2>
         <p>{s.summary}</p>
         <div class="story">{@html md(s.story)}</div>
         <div class="foot">
@@ -67,7 +67,8 @@
     flex-wrap: wrap;
   }
   .filters button {
-    border: 1px solid var(--border);
+    min-height: 32px;
+    border: 1px solid var(--border-strong);
     background: var(--surface);
     border-radius: 999px;
     padding: 5px 14px;
@@ -75,10 +76,10 @@
     font-weight: 600;
     color: var(--text-2);
   }
-  .filters button.on {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
+  .filters button[aria-pressed='true'] {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: #ffffff;
   }
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -116,7 +117,7 @@
     display: grid;
     place-items: center;
     border-radius: 12px;
-    background: var(--grad);
+    background: var(--grad-strong);
     color: white;
   }
   .lvl {
@@ -125,17 +126,18 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--dc);
-    border: 1px solid color-mix(in srgb, var(--dc) 40%, transparent);
+    border: 1px solid color-mix(in srgb, var(--dc) 55%, transparent);
     padding: 2px 8px;
     border-radius: 6px;
   }
   .ok {
     margin-left: auto;
-    color: var(--ok);
+    color: var(--ok-fg);
     display: grid;
   }
-  h3 {
+  .st {
     margin: 14px 0 4px;
+    font-size: 1.12rem;
   }
   .scn > p {
     color: var(--text-2);
@@ -144,8 +146,8 @@
   }
   .story {
     flex: 1;
-    font-size: 0.82rem;
-    color: var(--text-3);
+    font-size: 0.84rem;
+    color: var(--text-2);
     border-left: 2px solid var(--border-strong);
     padding-left: 10px;
     margin-bottom: 14px;
@@ -157,8 +159,8 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    font-size: 0.76rem;
-    color: var(--text-3);
+    font-size: 0.78rem;
+    color: var(--text-2);
     flex-wrap: wrap;
   }
   .foot span {
@@ -168,7 +170,7 @@
   }
   .go {
     font-weight: 700;
-    color: var(--accent-2);
+    color: var(--accent-2-fg);
     font-size: 0.84rem;
   }
   @media (max-width: 900px) {

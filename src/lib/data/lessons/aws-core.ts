@@ -18,11 +18,11 @@ export const AWS_CORE: Lesson[] = [
           text(
             '**AWS Identity and Access Management (IAM)** answers one question for every single request to AWS: *is this principal allowed to perform this action on this resource, under these conditions?*',
             '',
-            'Whether you click in the console, run the CLI, or Terraform applies a plan — it all becomes signed API calls evaluated by IAM.'
+            'Whether you click in the console, run the CLI, or Terraform applies a plan, it all becomes signed API calls evaluated by IAM.'
           ),
           cards(
             { title: 'Root user', icon: 'crown', color: '#f25f5c', md: 'The email you signed up with. Unlimited power. **Lock it away** with MFA and never use it day-to-day.' },
-            { title: 'IAM users', icon: 'user', color: '#94a3b8', md: 'Long-lived identities with passwords/access keys. Increasingly discouraged — prefer federated SSO.' },
+            { title: 'IAM users', icon: 'user', color: '#94a3b8', md: 'Long-lived identities with passwords/access keys. Increasingly discouraged: prefer federated SSO.' },
             { title: 'IAM roles', icon: 'key', color: '#ff9900', md: 'Identities *assumed* for temporary credentials by people (SSO), services (Lambda, EC2) or CI pipelines (OIDC).' },
             { title: 'Policies', icon: 'file-text', color: '#22d3ee', md: 'JSON documents listing `Effect`, `Action`, `Resource` and optional `Condition`s.' }
           ),
@@ -51,7 +51,7 @@ export const AWS_CORE: Lesson[] = [
             ['Action', [text('Service-prefixed API operations such as `s3:GetObject` or `ec2:RunInstances`. Wildcards work (`s3:Get*`) but be careful.')]],
             ['Resource', [text('One or more **ARNs** (Amazon Resource Names): `arn:partition:service:region:account-id:resource`. Some actions only support `*`.')]],
             ['Condition', [text('Extra requirements: source IP, MFA present, tags, VPC endpoint, time of day, and more.')]],
-            ['Principal', [text('Only in **resource-based policies** (e.g. S3 bucket policies, KMS key policies) — says *who* the statement applies to.')]]
+            ['Principal', [text('Only in **resource-based policies** (e.g. S3 bucket policies, KMS key policies), and says *who* the statement applies to.')]]
           ),
           terms(['ARN', 'A globally unique resource identifier, e.g. `arn:aws:s3:::acme-logs`.'], ['Identity-based policy', 'Attached to a user, group or role.'], ['Resource-based policy', 'Attached to the resource itself (bucket, queue, key).'], ['Trust policy', 'The resource policy on a role that says who may *assume* it.'])
         ]
@@ -61,7 +61,7 @@ export const AWS_CORE: Lesson[] = [
         blocks: [
           text('Toggle statements and change the request to see how IAM reaches a decision. Remember the golden rule: **explicit deny → allow → implicit deny**.'),
           widget('iam-eval'),
-          info('In multi-account setups, **Service Control Policies (SCPs)** from AWS Organizations and **permission boundaries** can further *limit* what a policy allows — they never grant anything themselves.')
+          info('In multi-account setups, **Service Control Policies (SCPs)** from AWS Organizations and **permission boundaries** can further *limit* what a policy allows. They never grant anything themselves.')
         ]
       },
       {
@@ -69,7 +69,7 @@ export const AWS_CORE: Lesson[] = [
         blocks: [
           text('A Lambda function needs to write to DynamoDB. You **never** put access keys in its code. Instead:'),
           carousel(
-            ['1 · Trust policy', [text('The role says *who can assume it* — here, the Lambda service.'), code('hcl', `resource "aws_iam_role" "orders_fn" {
+            ['1 · Trust policy', [text('The role says *who can assume it*: here, the Lambda service.'), code('hcl', `resource "aws_iam_role" "orders_fn" {
   name = "orders-fn"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -91,26 +91,26 @@ export const AWS_CORE: Lesson[] = [
     }]
   })
 }`, 'iam.tf')]],
-            ['3 · Attach to the function', [text('Lambda assumes the role on every cold start and the SDK picks up temporary credentials automatically — rotated for you, never stored.'), code('hcl', `resource "aws_lambda_function" "orders" {
+            ['3 · Attach to the function', [text('Lambda assumes the role on every cold start and the SDK picks up temporary credentials automatically. They are rotated for you and never stored.'), code('hcl', `resource "aws_lambda_function" "orders" {
   function_name = "orders"
   role          = aws_iam_role.orders_fn.arn
   # ...
 }`, 'lambda.tf')]]
           ),
           mistake('Granting `"Action": "*", "Resource": "*"` “just to get it working”. It usually stays that way. Start narrow and use **IAM Access Analyzer** to generate least-privilege policies from real activity.'),
-          example('GitHub Actions deploying Terraform: configure an **OIDC identity provider** in IAM and a role that trusts your repo. The workflow exchanges its OIDC token for short-lived credentials — no secrets stored in GitHub.')
+          example('GitHub Actions deploying Terraform: configure an **OIDC identity provider** in IAM and a role that trusts your repo. The workflow exchanges its OIDC token for short-lived credentials, so no secrets are stored in GitHub.')
         ]
       },
       {
         title: 'Check your understanding',
         blocks: [
           quiz('aws-iam', [
-            q('A user has one policy allowing `s3:*` and another denying `s3:DeleteObject`. Can they delete objects?', ['Yes — Allow is broader', 'No — explicit Deny always wins', 'Only in their own bucket', 'Only with MFA'], 1, 'Explicit Deny beats any number of Allows.'),
+            q('A user has one policy allowing `s3:*` and another denying `s3:DeleteObject`. Can they delete objects?', ['Yes, because Allow is broader', 'No, because an explicit Deny always wins', 'Only in their own bucket', 'Only with MFA'], 1, 'Explicit Deny beats any number of Allows.'),
             q('What should an EC2 instance or Lambda use to call AWS APIs?', ['Access keys in environment variables', 'The root user', 'An IAM role', 'A hard-coded password'], 2, 'Roles provide automatically rotated temporary credentials.'),
             q('No policy mentions `sqs:SendMessage`. What happens when the user tries it?', ['Allowed', 'Implicitly denied', 'Allowed in the default VPC', 'Error: policy invalid'], 1, 'IAM is deny-by-default.'),
             q('What does a role’s trust policy define?', ['What the role can do', 'Who can assume the role', 'Which region it works in', 'Its password'], 1, 'Trust policy = who may assume; permissions policies = what it can do.')
           ]),
-          challenge('secure-api', 'Put identity to work: build an API where Cognito authenticates users and a Lambda reads secrets — no credentials in code.'),
+          challenge('secure-api', 'Put identity to work: build an API where Cognito authenticates users and a Lambda reads secrets, with no credentials in code.'),
           docs(['What is IAM?', AWS + '/IAM/latest/UserGuide/introduction.html'], ['Policy evaluation logic', AWS + '/IAM/latest/UserGuide/reference_policies_evaluation-logic.html'], ['Security best practices in IAM', AWS + '/IAM/latest/UserGuide/best-practices.html'], ['Terraform: aws_iam_role', 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role'])
         ]
       }
@@ -122,7 +122,7 @@ export const AWS_CORE: Lesson[] = [
     id: 'aws-vpc',
     track: 'aws-core',
     title: 'VPC networking',
-    summary: 'CIDR blocks, subnets, route tables, internet & NAT gateways — the network under everything.',
+    summary: 'CIDR blocks, subnets, route tables, internet & NAT gateways: the network under everything.',
     icon: 'network',
     minutes: 18,
     level: 'Beginner',
@@ -131,9 +131,9 @@ export const AWS_CORE: Lesson[] = [
         title: 'Your private slice of AWS',
         blocks: [
           text(
-            'An **Amazon VPC** (Virtual Private Cloud) is a logically isolated virtual network in one region. EC2 instances, RDS databases, load balancers, EKS nodes — anything that needs an IP address — lives inside a VPC.',
+            'An **Amazon VPC** (Virtual Private Cloud) is a logically isolated virtual network in one region. EC2 instances, RDS databases, load balancers, EKS nodes: anything that needs an IP address lives inside a VPC.',
             '',
-            'Regional managed services like S3, DynamoDB, SQS and (by default) Lambda live *outside* your VPC and are reached via public AWS endpoints — or privately through **VPC endpoints**.'
+            'Regional managed services like S3, DynamoDB, SQS and (by default) Lambda live *outside* your VPC and are reached via public AWS endpoints, or privately through **VPC endpoints**.'
           ),
           diagram(
             [
@@ -146,7 +146,7 @@ export const AWS_CORE: Lesson[] = [
               { id: 'igw', label: 'Internet GW', x: 12, y: 50, icon: 'igw', note: 'The **Internet Gateway** is attached to the VPC. Subnets whose route table sends `0.0.0.0/0` to it become **public**.' },
               { id: 'alb', label: 'ALB', x: 32, y: 32, icon: 'alb', note: 'Internet-facing load balancers sit in public subnets.' },
               { id: 'nat', label: 'NAT GW', x: 68, y: 32, icon: 'natgw', note: 'A **NAT Gateway** in a public subnet lets private resources initiate outbound connections (patches, APIs) without being reachable from the internet.' },
-              { id: 'app', label: 'App servers', x: 32, y: 76, icon: 'ec2', note: 'Application servers live in **private** subnets — no public IPs, no inbound internet access.' },
+              { id: 'app', label: 'App servers', x: 32, y: 76, icon: 'ec2', note: 'Application servers live in **private** subnets, with no public IPs and no inbound internet access.' },
               { id: 'db', label: 'Database', x: 68, y: 76, icon: 'rds', note: 'Databases go in private subnets too, reachable only from the app tier.' },
               { id: 's3', label: 'S3', x: 96, y: 50, icon: 's3', note: 'S3 is outside the VPC. Private subnets reach it via a NAT Gateway or, better, a free **gateway VPC endpoint**.' }
             ],
@@ -167,19 +167,19 @@ export const AWS_CORE: Lesson[] = [
         title: 'CIDR blocks & subnets',
         blocks: [
           text(
-            'A VPC gets an IPv4 range written in **CIDR** notation — e.g. `10.0.0.0/16`. The number after the slash is how many bits are fixed as the *network*; the rest are for hosts. Smaller number = bigger network.',
+            'A VPC gets an IPv4 range written in **CIDR** notation, e.g. `10.0.0.0/16`. The number after the slash is how many bits are fixed as the *network*; the rest are for hosts. Smaller number = bigger network.',
             '',
             'You carve the VPC range into **subnets**, each pinned to one Availability Zone.'
           ),
           widget('cidr'),
           table(
             ['CIDR', 'Addresses', 'Usable in AWS subnet', 'Typical use'],
-            ['/16', '65,536', '—', 'Whole VPC'],
+            ['/16', '65,536', 'Not applicable', 'Whole VPC'],
             ['/20', '4,096', '4,091', 'Large private subnet (EKS pods!)'],
             ['/24', '256', '251', 'Typical subnet'],
             ['/28', '16', '11', 'Smallest allowed']
           ),
-          warn('Plan ranges up front. VPCs you might **peer** or connect via Transit Gateway must not overlap — `10.0.0.0/16` everywhere becomes a real problem later.')
+          warn('Plan ranges up front. VPCs you might **peer** or connect via Transit Gateway must not overlap. Using `10.0.0.0/16` everywhere becomes a real problem later.')
         ]
       },
       {
@@ -189,7 +189,7 @@ export const AWS_CORE: Lesson[] = [
           tabs(
             ['Public route table', [table(['Destination', 'Target'], ['10.0.0.0/16', 'local'], ['0.0.0.0/0', '**igw-0abc…** (Internet Gateway)']), text('Instances also need a **public IP** to be reachable.')]],
             ['Private route table', [table(['Destination', 'Target'], ['10.0.0.0/16', 'local'], ['0.0.0.0/0', '**nat-0def…** (NAT Gateway)']), text('Outbound only. Nothing on the internet can start a connection in.')]],
-            ['Isolated route table', [table(['Destination', 'Target'], ['10.0.0.0/16', 'local']), text('No internet at all — common for databases. Reach AWS services through VPC endpoints.')]]
+            ['Isolated route table', [table(['Destination', 'Target'], ['10.0.0.0/16', 'local']), text('No internet at all, which is common for databases. Reach AWS services through VPC endpoints.')]]
           ),
           code('hcl', `resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
@@ -205,7 +205,7 @@ resource "aws_route_table_association" "public_a" {
   route_table_id = aws_route_table.public.id
 }`, 'network.tf'),
           tip('NAT Gateways cost money per hour *and* per GB. For S3 and DynamoDB traffic, add free **gateway endpoints**; for other services, interface endpoints are often cheaper than pushing lots of data through NAT.'),
-          example('For high availability, run **one NAT Gateway per AZ** and point each private subnet at the NAT in its own AZ — otherwise an AZ outage cuts egress for everyone.')
+          example('For high availability, run **one NAT Gateway per AZ** and point each private subnet at the NAT in its own AZ. Otherwise an AZ outage cuts egress for everyone.')
         ]
       },
       {
@@ -215,7 +215,7 @@ resource "aws_route_table_association" "public_a" {
             q('What makes a subnet “public”?', ['It has “public” in its name', 'Its route table has a route to an Internet Gateway', 'It uses a /24 CIDR', 'It contains a load balancer'], 1, 'Public = route to an IGW (plus public IPs on instances).'),
             q('Where must a NAT Gateway be placed?', ['In a private subnet', 'In a public subnet', 'Outside the VPC', 'In every subnet'], 1, 'The NAT needs its own route to the IGW so it can forward traffic out.'),
             q('How many usable IPs does a /24 subnet have in AWS?', ['256', '254', '251', '250'], 2, '256 minus the 5 addresses AWS reserves.'),
-            q('Subnets in AWS span…', ['The whole region', 'Exactly one Availability Zone', 'Multiple regions', 'One edge location'], 1, 'Each AWS subnet lives in a single AZ — so use at least two for HA.')
+            q('Subnets in AWS span…', ['The whole region', 'Exactly one Availability Zone', 'Multiple regions', 'One edge location'], 1, 'Each AWS subnet lives in a single AZ, so use at least two for HA.')
           ]),
           challenge('vpc-foundations', 'Design a production-ready VPC: two AZs, public and private subnets, an Internet Gateway and a NAT Gateway.'),
           docs(['What is Amazon VPC?', AWS + '/vpc/latest/userguide/what-is-amazon-vpc.html'], ['Subnet CIDR blocks', AWS + '/vpc/latest/userguide/subnet-sizing.html'], ['Route tables', AWS + '/vpc/latest/userguide/VPC_Route_Tables.html'], ['NAT gateways', AWS + '/vpc/latest/userguide/vpc-nat-gateway.html'], ['Terraform AWS VPC module', 'https://registry.terraform.io/modules/terraform-aws-modules/vpc/aws/latest'])
@@ -229,7 +229,7 @@ resource "aws_route_table_association" "public_a" {
     id: 'aws-vpc-security',
     track: 'aws-core',
     title: 'Network security: SGs & NACLs',
-    summary: 'Stateful security groups vs stateless network ACLs — trace packets and find out why connections hang.',
+    summary: 'Stateful security groups vs stateless network ACLs: trace packets and find out why connections hang.',
     icon: 'shield',
     minutes: 12,
     level: 'Intermediate',
@@ -241,18 +241,18 @@ resource "aws_route_table_association" "public_a" {
           table(
             ['', 'Security group', 'Network ACL'],
             ['Applies to', 'Network interfaces (instances, ENIs)', 'Whole subnets'],
-            ['State', '**Stateful** — replies auto-allowed', '**Stateless** — replies need their own rule'],
+            ['State', '**Stateful**: replies are allowed automatically', '**Stateless**: replies need their own rule'],
             ['Rules', 'Allow only', 'Allow **and** deny'],
             ['Evaluation', 'All rules considered', 'Numbered, lowest first, first match wins'],
             ['Default', 'Deny all inbound, allow all outbound', 'Default NACL allows all']
           ),
-          tip('Security groups can reference **other security groups** as a source (“allow 5432 from `app-sg`”). This is far more robust than IP ranges — instances come and go, the group membership follows.')
+          tip('Security groups can reference **other security groups** as a source (“allow 5432 from `app-sg`”). This is far more robust than IP ranges: instances come and go, but the group membership follows them.')
         ]
       },
       {
         title: 'Trace a packet',
         blocks: [
-          text('Send packets from different sources and ports. Then try turning **off** the NACL outbound ephemeral-port rule and sending HTTPS again — this is the classic stateless gotcha.'),
+          text('Send packets from different sources and ports. Then try turning **off** the NACL outbound ephemeral-port rule and sending HTTPS again. This is the classic stateless gotcha.'),
           widget('sg-nacl'),
           mistake('Adding NACL inbound rules but forgetting outbound **ephemeral ports (1024–65535)**. The request gets in, the response can’t get out, and the connection just times out.')
         ]
@@ -283,9 +283,9 @@ resource "aws_vpc_security_group_egress_rule" "app_all" {
             ['What about AWS Network Firewall / WAF?', [text('**AWS WAF** filters HTTP traffic (SQL injection, bots) in front of CloudFront, ALB or API Gateway. **AWS Network Firewall** is a managed stateful firewall for deep packet inspection across VPCs.')]]
           ),
           quiz('aws-vpc-security', [
-            q('A web server’s security group allows inbound 443. Do you need an outbound rule for the HTTPS responses?', ['Yes, allow outbound 443', 'Yes, allow ephemeral ports', 'No — security groups are stateful', 'Only for IPv6'], 2, 'Stateful: return traffic for allowed connections is automatically permitted.'),
+            q('A web server’s security group allows inbound 443. Do you need an outbound rule for the HTTPS responses?', ['Yes, allow outbound 443', 'Yes, allow ephemeral ports', 'No, because security groups are stateful', 'Only for IPv6'], 2, 'Stateful: return traffic for allowed connections is automatically permitted.'),
             q('You need to block one malicious IP range for a whole subnet. Which tool?', ['Security group deny rule', 'Network ACL deny rule', 'IAM policy', 'Route table'], 1, 'Security groups can’t deny; NACLs can, at the subnet level.'),
-            q('NACL rules 100 ALLOW 0.0.0.0/0 and 200 DENY 203.0.113.0/24 exist. Is 203.0.113.5 allowed?', ['Denied — deny always wins', 'Allowed — rule 100 matches first', 'Depends on the security group only', 'Neither — error'], 1, 'NACLs evaluate in number order and stop at the first match. Put denies at lower numbers!')
+            q('NACL rules 100 ALLOW 0.0.0.0/0 and 200 DENY 203.0.113.0/24 exist. Is 203.0.113.5 allowed?', ['Denied, because deny always wins', 'Allowed, because rule 100 matches first', 'Depends on the security group only', 'Neither: it errors'], 1, 'NACLs evaluate in number order and stop at the first match. Put denies at lower numbers!')
           ]),
           docs(['Security groups', AWS + '/vpc/latest/userguide/vpc-security-groups.html'], ['Network ACLs', AWS + '/vpc/latest/userguide/vpc-network-acls.html'], ['Compare SGs and NACLs', AWS + '/vpc/latest/userguide/infrastructure-security.html'])
         ]
@@ -298,7 +298,7 @@ resource "aws_vpc_security_group_egress_rule" "app_all" {
     id: 'aws-ec2',
     track: 'aws-core',
     title: 'EC2, Auto Scaling & load balancers',
-    summary: 'Virtual servers, instance families, AMIs, elastic scaling and the ALB — the classic web tier.',
+    summary: 'Virtual servers, instance families, AMIs, elastic scaling and the ALB: the classic web tier.',
     icon: 'server',
     minutes: 16,
     level: 'Beginner',
@@ -308,12 +308,12 @@ resource "aws_vpc_security_group_egress_rule" "app_all" {
         blocks: [
           text('**Amazon EC2** gives you virtual machines (“instances”) in seconds. You pick three main things:'),
           tabs(
-            ['Instance type', [text('A family + generation + size, e.g. `m7g.large`:', '', '- **m** = general purpose, **c** = compute, **r** = memory, **t** = burstable, **g/p** = GPU', '- **7** = generation (newer is better value)', '- **g** = Graviton (AWS’s ARM chips — often ~20–40% better price/performance)', '- **large** = size; each step up roughly doubles CPU and RAM')]],
+            ['Instance type', [text('A family + generation + size, e.g. `m7g.large`:', '', '- **m** = general purpose, **c** = compute, **r** = memory, **t** = burstable, **g/p** = GPU', '- **7** = generation (newer is better value)', '- **g** = Graviton (AWS’s ARM chips, often ~20–40% better price/performance)', '- **large** = size; each step up roughly doubles CPU and RAM')]],
             ['AMI', [text('An **Amazon Machine Image** is the disk template: OS plus any pre-installed software. Use AWS-provided images (Amazon Linux 2023, Ubuntu) or bake your own “golden AMI” with a tool like EC2 Image Builder or Packer.')]],
             ['Storage & network', [text('- **EBS** volumes: network-attached block storage that persists independently of the instance', '- **Instance store**: fast local disk that is wiped on stop', '- Launched into a **subnet** with one or more **security groups**')]]
           ),
-          table(['Pricing model', 'Best for', 'Discount vs on-demand'], ['On-Demand', 'Spiky, short-term, unknown', '—'], ['Savings Plans / Reserved', 'Steady baseline for 1–3 years', 'up to ~72%'], ['Spot', 'Fault-tolerant, interruptible batch/CI', 'up to ~90%']),
-          tip('Use **user data** (a boot script) or a **launch template** to configure instances automatically — never hand-configure servers you can’t recreate.')
+          table(['Pricing model', 'Best for', 'Discount vs on-demand'], ['On-Demand', 'Spiky, short-term, unknown', 'None (list price)'], ['Savings Plans / Reserved', 'Steady baseline for 1–3 years', 'up to ~72%'], ['Spot', 'Fault-tolerant, interruptible batch/CI', 'up to ~90%']),
+          tip('Use **user data** (a boot script) or a **launch template** to configure instances automatically. Never hand-configure servers you can’t recreate.')
         ]
       },
       {
@@ -321,7 +321,7 @@ resource "aws_vpc_security_group_egress_rule" "app_all" {
         blocks: [
           text('An **Auto Scaling group (ASG)** keeps a fleet of identical instances between a *min* and *max*, replaces unhealthy ones, and adds/removes capacity based on scaling policies. **Target tracking** is the simplest: “keep average CPU at 60%”.'),
           widget('autoscaling'),
-          info('New instances take time to boot and pass health checks, so capacity lags demand. That’s why you keep headroom (a target below 100%) — and why scale-in is deliberately slower than scale-out.')
+          info('New instances take time to boot and pass health checks, so capacity lags demand. That’s why you keep headroom (a target below 100%), and why scale-in is deliberately slower than scale-out.')
         ]
       },
       {
@@ -385,7 +385,7 @@ resource "aws_autoscaling_policy" "cpu" {
           quiz('aws-ec2', [
             q('Which instance family is optimised for memory-heavy workloads like caches?', ['c7g', 'r7g', 't3', 'p5'], 1, '**r** = memory optimised.'),
             q('A CI pipeline runs builds that can safely be retried. Cheapest option?', ['On-Demand', 'Reserved Instances', 'Spot Instances', 'Dedicated Hosts'], 2, 'Spot offers deep discounts for interruptible work.'),
-            q('Why put app instances in private subnets behind an ALB?', ['It’s required by EC2', 'Smaller attack surface — only the ALB is internet-facing', 'Private subnets are faster', 'To avoid needing security groups'], 1, 'Only the load balancer is exposed; instances accept traffic just from the ALB’s security group.'),
+            q('Why put app instances in private subnets behind an ALB?', ['It’s required by EC2', 'Smaller attack surface: only the ALB is internet-facing', 'Private subnets are faster', 'To avoid needing security groups'], 1, 'Only the load balancer is exposed; instances accept traffic just from the ALB’s security group.'),
             q('What replaces an instance that fails its health check?', ['CloudWatch', 'The Auto Scaling group', 'The ALB', 'Route 53'], 1, 'The ALB stops routing to it; the ASG terminates and replaces it.')
           ]),
           challenge('three-tier', 'Wire up an ALB, an auto-scaled EC2 app tier and a Multi-AZ database that survives an AZ outage.'),
@@ -411,9 +411,9 @@ resource "aws_autoscaling_policy" "cpu" {
           text(
             '**Amazon S3** stores *objects* (files up to 50 TB each, with metadata) in *buckets*. It’s designed for **99.999999999% (11 nines) durability** by storing data redundantly across multiple AZs.',
             '',
-            'It is not a file system: there are no real folders — just keys like `reports/2025/q3.csv`, where the slashes are part of the name.'
+            'It is not a file system: there are no real folders, just keys like `reports/2025/q3.csv`, where the slashes are part of the name.'
           ),
-          terms(['Bucket', 'A container with a globally unique name, created in one region.'], ['Key', 'The object’s full name within the bucket.'], ['Prefix', 'The “folder-like” start of a key, useful for listing and permissions.'], ['Versioning', 'Keeps every version of an object — protects against overwrites and deletes.']),
+          terms(['Bucket', 'A container with a globally unique name, created in one region.'], ['Key', 'The object’s full name within the bucket.'], ['Prefix', 'The “folder-like” start of a key, useful for listing and permissions.'], ['Versioning', 'Keeps every version of an object, protecting against overwrites and deletes.']),
           cards(
             { title: 'Static assets & sites', icon: 'globe', color: '#22b8cf', md: 'HTML, JS, images served via CloudFront.' },
             { title: 'Data lakes', icon: 'database', color: '#5b8def', md: 'Parquet/CSV queried by Athena, Glue, EMR, Redshift Spectrum.' },
@@ -466,11 +466,11 @@ resource "aws_autoscaling_policy" "cpu" {
       "StringEquals": { "AWS:SourceArn": "arn:aws:cloudfront::123456789012:distribution/E2ABC" }
     }
   }]
-}`, 'bucket-policy.json', 'Only one specific CloudFront distribution can read objects — the bucket itself stays private.'),
+}`, 'bucket-policy.json', 'Only one specific CloudFront distribution can read objects, so the bucket itself stays private.'),
           accordion(
             ['Encryption', [text('All new objects are encrypted at rest by default (SSE-S3). Use **SSE-KMS** when you need key-level access control and audit trails in CloudTrail.')]],
             ['Versioning + MFA Delete + Object Lock', [text('Versioning protects against accidents; **Object Lock** (WORM) protects backups against ransomware and satisfies compliance retention rules.')]],
-            ['Pre-signed URLs', [text('Let a browser upload or download a specific object for a limited time without making anything public — perfect for user uploads.')]]
+            ['Pre-signed URLs', [text('Let a browser upload or download a specific object for a limited time without making anything public. Perfect for user uploads.')]]
           ),
           mistake('Making a bucket public to host a website. Use **CloudFront + Origin Access Control** instead: HTTPS, caching, custom domains, and the bucket stays private.')
         ]

@@ -1,6 +1,8 @@
 <script lang="ts">
+  import WidgetFrame from './WidgetFrame.svelte';
   import Range from '../ui/Range.svelte';
   import Icon from '../Icon.svelte';
+  import { settings } from '../../stores/settings.svelte';
 
   const CAP = 100; // req/s one instance can serve at 100% CPU
   let min = $state(2);
@@ -8,6 +10,8 @@
   let target = $state(60);
   let traffic = $state(150);
   let auto = $state(false);
+  // Auto-updating content must be pausable (WCAG 2.2.2); start paused if the user prefers less motion.
+  let running = $state(!settings.reduced);
 
   type Inst = { id: number; warm: number };
   let insts = $state<Inst[]>([{ id: 1, warm: 0 }, { id: 2, warm: 0 }]);
@@ -26,25 +30,26 @@
   }
 
   $effect(() => {
+    if (!running) return;
     const id = setInterval(() => {
       t++;
       if (auto) traffic = Math.round(260 + 220 * Math.sin(t / 9) + 120 * Math.sin(t / 3.3) + (Math.random() - 0.5) * 60);
       traffic = Math.max(20, Math.min(1200, traffic));
 
-      // warm-up: instances take a few ticks to pass health checks
+      // Warm-up: instances take a few ticks to pass health checks.
       insts = insts.map((i) => ({ ...i, warm: Math.max(0, i.warm - 1) }));
 
       const desired = Math.max(min, Math.min(max, Math.ceil(traffic / (CAP * (target / 100)))));
       if (desired > insts.length) {
         const add = desired - insts.length;
         insts = [...insts, ...Array.from({ length: add }, () => ({ id: nextId++, warm: 3 }))];
-        push(`Scale out +${add} → ${desired} (CPU above ${target}% target)`);
+        push(`Scale out +${add} to ${desired} instances (CPU above the ${target}% target)`);
         calm = 0;
       } else if (desired < insts.length) {
-        // scale-in is deliberately slower to avoid flapping
+        // Scale-in is deliberately slower to avoid flapping.
         if (++calm >= 4) {
           insts = insts.slice(0, insts.length - 1);
-          push(`Scale in −1 → ${insts.length} (sustained low CPU)`);
+          push(`Scale in by 1 to ${insts.length} instances (sustained low CPU)`);
           calm = 0;
         }
       } else calm = 0;
@@ -60,26 +65,25 @@
   const line = (key: 't' | 'c') => hist.map((h, i) => `${(i / 59) * W},${H - (h[key] / peak) * H}`).join(' ');
 </script>
 
-<div class="wbox">
-  <div class="whead">
-    <span class="wtag">Simulation</span><h4>EC2 Auto Scaling — target tracking</h4>
-    <span class="spacer"></span>
-    <button class="btn sm" class:primary={auto} onclick={() => (auto = !auto)}><Icon name={auto ? 'pause' : 'play'} size={14} /> {auto ? 'Stop' : 'Simulate a day'}</button>
-  </div>
+<WidgetFrame kind="Simulation" title="EC2 Auto Scaling: target tracking">
+  {#snippet actions()}
+    <button class="btn sm" aria-pressed={auto} onclick={() => ((auto = !auto), (running = true))}><Icon name="sun" size={14} /> Simulate a day</button>
+    <button class="btn sm" onclick={() => (running = !running)}><Icon name={running ? 'pause' : 'play'} size={14} /> {running ? 'Pause' : 'Resume'}<span class="sr-only"> simulation</span></button>
+  {/snippet}
 
   <div class="cols">
     <div>
-      <Range label="Incoming traffic" bind:value={traffic} min={20} max={1200} step={10} format={(v) => `${v} req/s`} />
+      <Range label="Incoming traffic" bind:value={traffic} min={20} max={1200} step={10} format={(v) => `${v} req/s`} valuetext={(v) => `${v} requests per second`} />
       <Range label="Target CPU utilisation" bind:value={target} min={20} max={90} format={(v) => `${v}%`} />
       <div class="mm">
-        <Range label="Min" bind:value={min} min={1} max={5} />
-        <Range label="Max" bind:value={max} min={5} max={16} />
+        <Range label="Min instances" bind:value={min} min={1} max={5} />
+        <Range label="Max instances" bind:value={max} min={5} max={16} />
       </div>
     </div>
     <div>
-      <div class="fleet">
+      <div class="fleet" aria-hidden="true">
         {#each insts as i (i.id)}
-          <span class="srv" class:warm={i.warm > 0} title={i.warm ? 'Warming up / health checks' : 'In service'}><Icon name="server" size={18} /></span>
+          <span class="srv" class:warm={i.warm > 0}><Icon name="server" size={18} /></span>
         {/each}
       </div>
       <div class="stats">
@@ -87,18 +91,21 @@
         <div class="stat"><span>Avg CPU</span><b class:hot={cpu > 90}>{cpu.toFixed(0)}%</b></div>
         <div class="stat"><span>Dropped</span><b class:hot={dropped > 0}>{dropped} r/s</b></div>
       </div>
+      {#if !running}<p class="paused" role="status">Simulation paused.</p>{/if}
     </div>
   </div>
 
-  <svg viewBox="0 0 {W} {H}" class="chart" preserveAspectRatio="none" aria-label="Traffic vs capacity">
+  <svg viewBox="0 0 {W} {H}" class="chart" preserveAspectRatio="none" role="img" aria-label="Chart of traffic against healthy capacity over the last 36 seconds. Current traffic {traffic} requests per second; healthy capacity {ready * CAP}.">
     <polyline points={line('c')} class="cap" />
     <polyline points={line('t')} class="tr" />
   </svg>
-  <div class="legend"><span><i class="lt"></i> Traffic</span><span><i class="lc"></i> Healthy capacity</span></div>
-  <ul class="log">
-    {#each log as l, i (l + i)}<li class:first={i === 0}>{l}</li>{/each}
-  </ul>
-</div>
+  <div class="legend" aria-hidden="true"><span><i class="lt"></i> Traffic</span><span><i class="lc"></i> Healthy capacity (dashed)</span></div>
+  <div role="log" aria-label="Scaling events">
+    <ul class="log">
+      {#each log as l, i (l + i)}<li class:first={i === 0}>{l}</li>{/each}
+    </ul>
+  </div>
+</WidgetFrame>
 
 <style>
   .cols {
@@ -129,14 +136,14 @@
     display: grid;
     place-items: center;
     border-radius: 10px;
-    color: var(--c-compute);
+    color: var(--aws-fg);
     background: rgba(255, 153, 0, 0.14);
-    border: 1px solid rgba(255, 153, 0, 0.4);
+    border: 1px solid rgba(255, 153, 0, 0.5);
     animation: pop 0.35s var(--ease);
   }
   .srv.warm {
-    opacity: 0.5;
     border-style: dashed;
+    background: transparent;
     animation: pulse 0.9s infinite alternate;
   }
   @keyframes pop {
@@ -146,7 +153,7 @@
   }
   @keyframes pulse {
     to {
-      opacity: 0.25;
+      opacity: 0.45;
     }
   }
   .stats {
@@ -158,7 +165,12 @@
     font-size: 1.1rem !important;
   }
   .hot {
-    color: var(--err);
+    color: var(--err-fg);
+  }
+  .paused {
+    margin: 8px 0 0;
+    font-size: 0.82rem;
+    color: var(--text-2);
   }
   .chart {
     width: 100%;
@@ -173,16 +185,16 @@
     vector-effect: non-scaling-stroke;
   }
   .tr {
-    stroke: var(--accent-2);
+    stroke: var(--accent-2-fg);
   }
   .cap {
-    stroke: var(--c-compute);
+    stroke: var(--aws-fg);
     stroke-dasharray: 4 3;
   }
   .legend {
     display: flex;
     gap: 14px;
-    font-size: 0.76rem;
+    font-size: 0.78rem;
     color: var(--text-2);
     margin-top: 6px;
   }
@@ -194,18 +206,18 @@
     vertical-align: middle;
   }
   .lt {
-    background: var(--accent-2);
+    background: var(--accent-2-fg);
   }
   .lc {
-    background: var(--c-compute);
+    background: var(--aws-fg);
   }
   .log {
     list-style: none;
     padding: 0;
     margin: 10px 0 0;
     font-family: var(--mono);
-    font-size: 0.75rem;
-    color: var(--text-3);
+    font-size: 0.76rem;
+    color: var(--text-2);
   }
   .log .first {
     color: var(--text);

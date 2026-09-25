@@ -46,7 +46,7 @@ export function validate(g: Graph): Issue[] {
         title: `${nm(n)} belongs directly in a VPC`,
         body:
           n.svc === 'subnet'
-            ? 'Subnets are carved out of a VPC’s CIDR range — drop the subnet inside a VPC (and not inside another subnet).'
+            ? 'Subnets are carved out of a VPC’s CIDR range. Drop the subnet inside a VPC (and not inside another subnet).'
             : `${s.full} attaches to the VPC as a whole, not to a single subnet. Place it inside the VPC, outside any subnet.`,
         docs: s.docs
       });
@@ -56,7 +56,7 @@ export function validate(g: Graph): Issue[] {
         level: 'error',
         node: n.id,
         title: `${nm(n)} doesn't live inside a VPC`,
-        body: `${s.full} is a regional managed service reached over AWS APIs. Move it outside the VPC — use a VPC endpoint if private access is needed.`,
+        body: `${s.full} is a regional managed service reached over AWS APIs. Move it outside the VPC, and use a VPC endpoint if private access is needed.`,
         docs: s.docs
       });
     if (n.svc === 'vpc' && parent)
@@ -76,7 +76,7 @@ export function validate(g: Graph): Issue[] {
           docs: SERVICE.igw.docs
         });
       if (g.children(n.id).length === 0)
-        add({ key: `empty-subnet-${n.id}`, level: 'hint', node: n.id, title: `${nm(n)} is empty`, body: 'Drop compute, databases or load balancers into this subnet — or remove it.' });
+        add({ key: `empty-subnet-${n.id}`, level: 'hint', node: n.id, title: `${nm(n)} is empty`, body: 'Drop compute, databases or load balancers into this subnet, or remove it.' });
     }
     if (n.svc === 'natgw' && subnet && !g.isPublic(subnet))
       add({
@@ -206,11 +206,11 @@ export function validate(g: Graph): Issue[] {
     if (n.svc === 'sqs' && n.config.dlq === false)
       add({ key: `sqs-dlq-${n.id}`, level: 'hint', node: n.id, title: 'No dead-letter queue', body: 'Without a DLQ, a “poison” message that always fails will be retried until it expires. Enable a DLQ to capture failures.' });
     if (n.svc === 'ecr' && n.config.mutable === true)
-      add({ key: `ecr-mutable-${n.id}`, level: 'hint', node: n.id, title: 'Mutable image tags', body: 'Immutable tags guarantee that `v1.4.2` always means the same image — safer rollbacks and audits.' });
+      add({ key: `ecr-mutable-${n.id}`, level: 'hint', node: n.id, title: 'Mutable image tags', body: 'Immutable tags guarantee that `v1.4.2` always means the same image, for safer rollbacks and audits.' });
     if (n.svc === 'cloudfront' && !g.out(n.id).length)
       add({ key: `cf-no-origin-${n.id}`, level: 'error', node: n.id, title: 'CloudFront needs an origin', body: 'Connect the distribution to an origin: an S3 bucket, ALB or API Gateway.' });
     if (n.svc === 'apigw' && !g.out(n.id).length)
-      add({ key: `apigw-no-int-${n.id}`, level: 'warn', node: n.id, title: 'API has no integration', body: 'Connect API Gateway to a backend — typically a Lambda function.' });
+      add({ key: `apigw-no-int-${n.id}`, level: 'warn', node: n.id, title: 'API has no integration', body: 'Connect API Gateway to a backend, typically a Lambda function.' });
     if (n.svc === 'igw' && vpc && !g.subnetsIn(vpc).some((s) => g.isPublic(s)))
       add({ key: `igw-unused-${n.id}`, level: 'hint', node: n.id, title: 'No public subnets use this gateway', body: 'Mark a subnet as public (inspector) so its route table points at the Internet Gateway.' });
 
@@ -230,6 +230,6 @@ export function explainBadLink(from: string, to: string, bad: Record<string, str
   const targets = Object.keys(s?.links ?? {})
     .map((t) => SERVICE[t]?.name)
     .filter(Boolean);
-  if (!targets.length) return `${s?.name ?? from} doesn’t initiate connections in this model — try connecting *into* it instead.`;
+  if (!targets.length) return `${s?.name ?? from} doesn’t initiate connections in this model. Try connecting *into* it instead.`;
   return `${s.name} → ${SERVICE[to]?.name ?? to} isn’t a typical integration. ${s.name} usually connects to: ${targets.slice(0, 7).join(', ')}.`;
 }

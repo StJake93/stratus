@@ -9,6 +9,11 @@
   const color = $derived(categoryColor(s.category));
   const level = $derived(board.worst.get(id));
 
+  // Handles that currently carry a connection stay visible, so you can see exactly where each connector attaches.
+  const used = $derived(
+    new Set(board.edges.flatMap((e) => (e.source === id ? [e.sourceHandle] : e.target === id ? [e.targetHandle] : [])).filter(Boolean) as string[])
+  );
+
   const sub = $derived.by(() => {
     const c = data.config;
     switch (data.svc) {
@@ -32,16 +37,23 @@
   });
 </script>
 
+<!--
+  The handles live on this static outer box. The entrance animation runs on .inner only:
+  Svelte Flow measures handle positions when the node mounts, and measuring mid-animation
+  (while scaled down) is what made connectors end inside the node instead of on its border.
+-->
 <div class="svc" class:sel={selected} style:--c={color}>
-  <Handle type="source" position={Position.Top} id="t" />
-  <Handle type="source" position={Position.Left} id="l" />
-  <Handle type="source" position={Position.Right} id="r" />
-  <Handle type="source" position={Position.Bottom} id="b" />
-  <span class="tile"><Icon name={s.icon} size={24} /></span>
-  <span class="name">{data.name}</span>
-  <span class="sub">{sub}</span>
+  <Handle type="source" position={Position.Top} id="t" class={used.has('t') ? 'used' : ''} />
+  <Handle type="source" position={Position.Left} id="l" class={used.has('l') ? 'used' : ''} />
+  <Handle type="source" position={Position.Right} id="r" class={used.has('r') ? 'used' : ''} />
+  <Handle type="source" position={Position.Bottom} id="b" class={used.has('b') ? 'used' : ''} />
+  <div class="inner">
+    <span class="tile"><Icon name={s.icon} size={24} /></span>
+    <span class="name">{data.name}</span>
+    <span class="sub">{sub}</span>
+  </div>
   {#if level}
-    <span class="badge {level}" title="{level === 'error' ? 'Error' : level === 'warn' ? 'Warning' : 'Hint'} — see Issues panel">
+    <span class="badge {level}" title="{level === 'error' ? 'Error' : level === 'warn' ? 'Warning' : 'Hint'}: see the Issues tab">
       <Icon name={level === 'error' ? 'circle-x' : level === 'warn' ? 'triangle-alert' : 'lightbulb'} size={12} stroke={2.5} />
     </span>
   {/if}
@@ -50,36 +62,37 @@
 <style>
   .svc {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    width: 104px;
-    padding: 10px 6px 8px;
+    width: 108px;
     border-radius: 14px;
-    background: color-mix(in srgb, var(--solid) 92%, transparent);
-    border: 1.5px solid color-mix(in srgb, var(--c) 35%, var(--border));
+    background: color-mix(in srgb, var(--solid) 94%, transparent);
+    border: 1.5px solid color-mix(in srgb, var(--c) 45%, var(--border-strong));
     box-shadow: var(--shadow);
     transition:
       box-shadow 0.2s,
-      border-color 0.2s,
-      transform 0.2s var(--ease);
-    animation: land 0.35s var(--ease);
-  }
-  @keyframes land {
-    from {
-      transform: scale(0.6);
-      opacity: 0;
-    }
+      border-color 0.2s;
   }
   .svc:hover {
-    border-color: color-mix(in srgb, var(--c) 70%, transparent);
+    border-color: color-mix(in srgb, var(--c) 80%, transparent);
   }
   .svc.sel {
     border-color: var(--c);
     box-shadow:
-      0 0 0 4px color-mix(in srgb, var(--c) 25%, transparent),
+      0 0 0 3px var(--focus),
       var(--shadow);
+  }
+  .inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 10px 6px 8px;
+    animation: land 0.35s var(--ease);
+  }
+  @keyframes land {
+    from {
+      transform: scale(0.7);
+      opacity: 0;
+    }
   }
   .tile {
     width: 42px;
@@ -91,35 +104,35 @@
     background: color-mix(in srgb, var(--c) 16%, transparent);
   }
   .name {
-    font-size: 0.74rem;
+    font-size: 0.76rem;
     font-weight: 700;
-    max-width: 96px;
+    max-width: 98px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .sub {
-    font-size: 0.62rem;
-    color: var(--text-3);
-    max-width: 96px;
+    font-size: 0.66rem;
+    color: var(--text-2);
+    max-width: 98px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .badge {
     position: absolute;
-    top: -7px;
-    right: -7px;
-    width: 20px;
-    height: 20px;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
     display: grid;
     place-items: center;
     border-radius: 50%;
-    color: white;
+    color: #ffffff;
     box-shadow: 0 0 0 2px var(--bg);
   }
   .badge.error {
-    background: var(--err);
+    background: var(--err-strong);
     animation: throb 1.6s infinite;
   }
   .badge.warn {
@@ -127,26 +140,46 @@
     color: #3a2800;
   }
   .badge.hint {
-    background: var(--info);
+    background: var(--info-strong);
   }
   @keyframes throb {
     50% {
       box-shadow:
         0 0 0 2px var(--bg),
-        0 0 0 6px rgba(248, 113, 113, 0.3);
+        0 0 0 6px rgba(220, 38, 38, 0.3);
     }
   }
+  /* Handles: a 12px circle centred on the border, with a larger invisible hit area around it. */
   .svc :global(.svelte-flow__handle) {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
+    min-width: 0;
+    min-height: 0;
     background: var(--solid);
     border: 2px solid var(--c);
     opacity: 0;
-    transition: opacity 0.15s;
+    transition:
+      opacity 0.15s,
+      scale 0.15s;
+  }
+  .svc :global(.svelte-flow__handle::before) {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+  }
+  .svc :global(.svelte-flow__handle.used) {
+    opacity: 1;
+    background: var(--c);
+    border-color: var(--solid);
   }
   .svc:hover :global(.svelte-flow__handle),
   .svc.sel :global(.svelte-flow__handle),
   :global(.svelte-flow.connecting) .svc :global(.svelte-flow__handle) {
     opacity: 1;
+  }
+  /* `scale` composes with Svelte Flow's per-side translate, so handles stay centred on the border. */
+  .svc :global(.svelte-flow__handle:hover) {
+    scale: 1.3;
   }
 </style>

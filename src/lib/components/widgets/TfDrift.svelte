@@ -1,5 +1,7 @@
 <script lang="ts">
+  import WidgetFrame from './WidgetFrame.svelte';
   import Icon from '../Icon.svelte';
+  import { scrollable } from '../../actions';
 
   type Val = string | null; // null = does not exist
   interface Row {
@@ -24,7 +26,7 @@
 
   function consoleResize() {
     web.real = web.real === 't3.large' ? 't3.xlarge' : 't3.large';
-    msg = `Someone resized the instance to ${web.real} in the AWS console. Terraform doesn't know yet — state still says ${web.state}.`;
+    msg = `Someone resized the instance to ${web.real} in the AWS console. Terraform doesn't know yet: state still says ${web.state}.`;
     out = [];
   }
   function consoleDelete() {
@@ -34,7 +36,7 @@
   }
   function consoleBucket() {
     bucket.real = 'acme-reports';
-    msg = 'A teammate created an S3 bucket by clicking in the console. It exists in AWS but not in code or state — it is unmanaged.';
+    msg = 'A teammate created an S3 bucket by clicking in the console. It exists in AWS but not in code or state, so it is unmanaged.';
     out = [];
   }
   function adoptCode() {
@@ -54,7 +56,7 @@
     const lines: string[] = ['$ terraform ' + (applying ? 'apply' : 'plan'), '', 'Refreshing state...'];
     for (const r of rows) {
       if (r.state !== null && r.state !== r.real) {
-        lines.push(`Note: Objects have changed outside of Terraform — ${r.addr}.${r.attr}: "${r.state}" → ${r.real ? `"${r.real}"` : '(deleted)'}`);
+        lines.push(`Note: Objects have changed outside of Terraform. ${r.addr}.${r.attr}: "${r.state}" → ${r.real ? `"${r.real}"` : '(deleted)'}`);
         r.state = r.real;
       }
     }
@@ -106,39 +108,47 @@
     out = [];
     msg = 'Everything is in sync: code, state and the real AWS account agree.';
   }
-  const show = (v: Val) => v ?? '—';
 </script>
 
-<div class="wbox">
-  <div class="whead">
-    <span class="wtag">Scenario</span><h4>Drift: code vs state vs reality</h4>
-    <span class="spacer"></span>
-    <button class="btn sm ghost" onclick={reset}><Icon name="rotate-ccw" size={14} /> Reset</button>
+<WidgetFrame kind="Scenario" title="Drift: code vs state vs reality">
+  {#snippet actions()}
+    <button class="btn sm ghost" onclick={reset}><Icon name="rotate-ccw" size={14} /> Reset<span class="sr-only"> drift scenario</span></button>
+  {/snippet}
+
+  <div class="tbl-wrap" use:scrollable>
+    <table class="tbl">
+      <caption class="sr-only">Each managed attribute as written in code, recorded in state, and actually deployed in AWS. Out-of-sync values are marked.</caption>
+      <thead>
+        <tr>
+          <th scope="col"><span class="sr-only">Resource</span></th>
+          <th scope="col"><Icon name="file-code" size={14} /> Code (.tf)</th>
+          <th scope="col"><Icon name="database" size={14} /> State</th>
+          <th scope="col"><Icon name="cloud" size={14} /> Real AWS</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each rows as r}
+          <tr>
+            <th scope="row" class="addr">{r.addr}<small>{r.attr}</small></th>
+            {@render cell(r.code, false)}
+            {@render cell(r.state, r.state !== r.real)}
+            {@render cell(r.real, r.real !== r.code)}
+          </tr>
+        {/each}
+      </tbody>
+    </table>
   </div>
 
-  <div class="tbl">
-    <div class="th"></div>
-    <div class="th"><Icon name="file-code" size={14} /> Code (.tf)</div>
-    <div class="th"><Icon name="database" size={14} /> State</div>
-    <div class="th"><Icon name="cloud" size={14} /> Real AWS</div>
-    {#each rows as r}
-      <div class="addr">{r.addr}<small>{r.attr}</small></div>
-      <div class="cell" class:none={r.code === null}>{show(r.code)}</div>
-      <div class="cell" class:none={r.state === null} class:bad={r.state !== r.real}>{show(r.state)}</div>
-      <div class="cell" class:none={r.real === null} class:bad={r.real !== r.code}>{show(r.real)}</div>
-    {/each}
-  </div>
+  <p class="msg" aria-live="polite"><Icon name="info" size={15} /> <span>{msg}</span></p>
 
-  <p class="msg"><Icon name="info" size={15} /> {msg}</p>
-
-  <div class="acts">
-    <span class="eyebrow">Out-of-band changes</span>
+  <div class="acts" role="group" aria-labelledby="drift-oob">
+    <span class="eyebrow" id="drift-oob">Out-of-band changes</span>
     <button class="btn sm" onclick={consoleResize}><Icon name="mouse-pointer-2" size={13} /> Resize in console</button>
     <button class="btn sm" onclick={consoleDelete}><Icon name="trash" size={13} /> Terminate by hand</button>
     <button class="btn sm" onclick={consoleBucket}><Icon name="archive" size={13} /> Click-ops a bucket</button>
   </div>
-  <div class="acts">
-    <span class="eyebrow">Your response</span>
+  <div class="acts" role="group" aria-labelledby="drift-resp">
+    <span class="eyebrow" id="drift-resp">Your response</span>
     <button class="btn sm" onclick={() => plan(false)}>terraform plan</button>
     <button class="btn sm" onclick={() => plan(true)}>terraform apply</button>
     <button class="btn sm" onclick={adoptCode} disabled={!web.real || web.real === web.code}>Adopt change in code</button>
@@ -146,36 +156,50 @@
   </div>
 
   {#if out.length}
-    <div class="term fade-in">
-      {#each out as l, i (i)}<div class:g={/^\s*\+|complete|import/.test(l)} class:y={/~|changed outside|Note/.test(l)} class:b={/^Plan:/.test(l)}>{l || ' '}</div>{/each}
+    <div class="term fade-in" use:scrollable role="log" aria-label="Terminal output">
+      {#each out as l, i (i)}<div class:g={/^\s*\+|complete|import/.test(l)} class:y={/~|changed outside|Note/.test(l)} class:b={/^Plan:/.test(l)}>{l || '\u00a0'}</div>{/each}
     </div>
   {/if}
-</div>
+</WidgetFrame>
+
+{#snippet cell(v: Val, drift: boolean)}
+  <td class="cell" class:none={v === null} class:bad={drift}>
+    {#if drift}<Icon name="triangle-alert" size={13} />{/if}
+    {v ?? 'None'}{#if drift}<span class="sr-only"> (out of sync)</span>{/if}
+  </td>
+{/snippet}
 
 <style>
+  .tbl-wrap {
+    overflow-x: auto;
+  }
   .tbl {
-    display: grid;
-    grid-template-columns: 1.3fr 1fr 1fr 1fr;
-    gap: 6px;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 6px;
     font-size: 0.84rem;
   }
-  .th {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  thead th {
+    text-align: left;
     font-weight: 700;
     font-size: 0.78rem;
     color: var(--text-2);
+    white-space: nowrap;
+  }
+  thead th :global(svg) {
+    vertical-align: -2px;
+    margin-right: 4px;
   }
   .addr {
+    text-align: left;
     font-family: var(--mono);
     font-size: 0.78rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    font-weight: 600;
   }
   .addr small {
-    color: var(--text-3);
+    display: block;
+    color: var(--text-2);
+    font-weight: 400;
   }
   .cell {
     padding: 8px 10px;
@@ -183,17 +207,24 @@
     font-family: var(--mono);
     font-size: 0.8rem;
     background: var(--ok-soft);
-    border: 1px solid rgba(52, 211, 153, 0.35);
+    border: 1px solid rgba(52, 211, 153, 0.45);
     transition: all 0.3s;
   }
   .cell.bad {
     background: var(--warn-soft);
-    border-color: rgba(251, 191, 36, 0.5);
+    border: 2px dashed var(--warn);
+    color: var(--warn-fg);
+    font-weight: 700;
+  }
+  .cell.bad :global(svg) {
+    vertical-align: -2px;
+    margin-right: 3px;
   }
   .cell.none {
     background: var(--surface);
-    border-color: var(--border);
-    color: var(--text-3);
+    border-color: var(--border-strong);
+    color: var(--text-2);
+    font-style: italic;
   }
   .msg {
     display: flex;
@@ -208,7 +239,7 @@
   .msg :global(svg) {
     flex: none;
     margin-top: 3px;
-    color: var(--info);
+    color: var(--info-fg);
   }
   .acts {
     display: flex;
@@ -223,12 +254,16 @@
   .term {
     margin-top: 8px;
     background: #070a13;
-    color: #c8d1e6;
+    color: #d6deeb;
     border-radius: 10px;
     padding: 10px 14px;
     font-family: var(--mono);
     font-size: 0.76rem;
     white-space: pre-wrap;
+  }
+  .term:focus-visible {
+    outline: 2px solid #67e8f9;
+    outline-offset: -2px;
   }
   .g {
     color: #34d399;
@@ -239,14 +274,5 @@
   .b {
     color: #93c5fd;
     font-weight: 600;
-  }
-  @media (max-width: 600px) {
-    .tbl {
-      grid-template-columns: 1fr 1fr 1fr;
-    }
-    .th:first-child,
-    .addr {
-      grid-column: 1 / -1;
-    }
   }
 </style>

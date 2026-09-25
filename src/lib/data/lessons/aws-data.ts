@@ -22,7 +22,7 @@ export const AWS_DATA: Lesson[] = [
             ['Scaling', 'Vertical + read replicas', 'Horizontal, virtually unlimited'],
             ['Queries', 'Ad-hoc SQL, complex joins', 'Known access patterns by key / index'],
             ['Networking', 'Lives in your VPC subnets', 'Regional endpoint (use a gateway endpoint)'],
-            ['Ops', 'Instance sizes, maintenance windows', 'Serverless — no instances'],
+            ['Ops', 'Instance sizes, maintenance windows', 'Serverless, with no instances'],
             ['Great for', 'Transactions, reporting, existing apps', 'High-scale apps, serverless, sessions, IoT']
           ),
           cards(
@@ -42,7 +42,7 @@ export const AWS_DATA: Lesson[] = [
               { id: 'b', label: 'AZ b', x: 52, y: 8, group: true, w: 44, h: 84, color: '#5b8def' },
               { id: 'app', label: 'App', x: 26, y: 26, icon: 'ecs' },
               { id: 'p', label: 'Primary', x: 26, y: 72, icon: 'rds', note: 'The **primary** takes all writes. Automated backups + point-in-time recovery up to 35 days.' },
-              { id: 's', label: 'Standby', x: 74, y: 72, icon: 'rds', color: '#94a3b8', note: '**Multi-AZ standby**: synchronous replica in another AZ. Not readable (in the classic setup) — it exists purely for automatic failover, typically 60–120 s.' },
+              { id: 's', label: 'Standby', x: 74, y: 72, icon: 'rds', color: '#94a3b8', note: '**Multi-AZ standby**: synchronous replica in another AZ. Not readable in the classic setup: it exists purely for automatic failover, typically within 60–120 s.' },
               { id: 'r', label: 'Read replica', x: 74, y: 26, icon: 'rds', note: '**Read replicas** use asynchronous replication to scale reads (reporting, analytics). Can be cross-region for DR.' }
             ],
             [
@@ -56,8 +56,8 @@ export const AWS_DATA: Lesson[] = [
           accordion(
             ['Multi-AZ vs read replicas', [text('**Multi-AZ = availability** (failover). **Read replicas = scalability** (more read throughput). Production databases usually need Multi-AZ; add replicas when reads are the bottleneck.')]],
             ['Why Aurora?', [text('Aurora separates compute from a distributed storage layer that keeps **six copies across three AZs**. Faster failover, up to 15 low-lag replicas, storage that auto-grows, and **Aurora Serverless v2** that scales capacity in fine-grained steps.')]],
-            ['Credentials', [text('Let RDS manage the master password in **Secrets Manager** (`manage_master_user_password = true`) with automatic rotation. Apps read it at runtime — no passwords in Terraform state or code.')]],
-            ['RDS Proxy', [text('Pools and shares connections — essential when hundreds of Lambda invocations would otherwise open hundreds of database connections.')]]
+            ['Credentials', [text('Let RDS manage the master password in **Secrets Manager** (`manage_master_user_password = true`) with automatic rotation. Apps read it at runtime, so no passwords end up in Terraform state or code.')]],
+            ['RDS Proxy', [text('Pools and shares connections. Essential when hundreds of Lambda invocations would otherwise open hundreds of database connections.')]]
           ),
           code('hcl', `resource "aws_db_subnet_group" "main" {
   name       = "main"
@@ -87,12 +87,12 @@ resource "aws_db_instance" "orders" {
           text('DynamoDB tables have a **primary key**: a *partition key* (hashed to spread data across partitions) and optionally a *sort key* (orders items within a partition). You design keys around **how you will read the data**, not around entities.'),
           tabs(
             ['Keys', [table(['pk', 'sk', 'attributes'], ['`CUSTOMER#42`', '`PROFILE`', 'name, email'], ['`CUSTOMER#42`', '`ORDER#2025-09-01#981`', 'total, status'], ['`CUSTOMER#42`', '`ORDER#2025-09-14#1002`', 'total, status']), text('One `Query` on `pk = CUSTOMER#42 AND begins_with(sk, "ORDER#")` returns a customer’s orders, sorted by date. That’s **single-table design**.')]],
-            ['Indexes', [text('- **GSI** (global secondary index): a different partition/sort key over the same data, e.g. look up orders by `status`.', '- **LSI**: same partition key, alternative sort key — must be defined at table creation.')]],
+            ['Indexes', [text('- **GSI** (global secondary index): a different partition/sort key over the same data, e.g. look up orders by `status`.', '- **LSI**: same partition key, alternative sort key, which must be defined at table creation.')]],
             ['Capacity', [text('- **On-demand**: pay per request, instant scaling. Great default.', '- **Provisioned** (+ auto scaling): cheaper for steady, predictable traffic.')]],
             ['Extras', [text('- **Streams**: change feed → Lambda (event-driven)', '- **TTL**: auto-expire items (sessions, carts)', '- **Global tables**: multi-region, active-active replication', '- **PITR**: point-in-time restore for the last 35 days')]]
           ),
           warn('`Scan` reads the entire table and is slow and expensive at scale. If you find yourself scanning, you probably need a better key design or a GSI.'),
-          mistake('Using a low-cardinality partition key like `status = "PENDING"`. Everything lands on one partition — a **hot partition** — and throughput suffers.')
+          mistake('Using a low-cardinality partition key like `status = "PENDING"`. Everything lands on one partition (a **hot partition**) and throughput suffers.')
         ]
       },
       {
@@ -116,7 +116,7 @@ resource "aws_db_instance" "orders" {
     id: 'aws-messaging',
     track: 'aws-data',
     title: 'Messaging & events: SQS, SNS, EventBridge',
-    summary: 'Decouple services with queues, topics and event buses — and orchestrate with Step Functions.',
+    summary: 'Decouple services with queues, topics and event buses, and orchestrate with Step Functions.',
     icon: 'inbox',
     minutes: 16,
     level: 'Intermediate',
@@ -133,9 +133,9 @@ resource "aws_db_instance" "orders" {
         title: 'Three tools, three shapes',
         blocks: [
           tabs(
-            ['SQS — queues', [text('**Point-to-point.** Producers send messages; consumers poll and delete them after processing. Each message is processed by one consumer.'), table(['', 'Standard', 'FIFO'], ['Ordering', 'Best-effort', 'Strict (per message group)'], ['Delivery', 'At-least-once', 'Exactly-once processing'], ['Throughput', 'Nearly unlimited', 'High, but capped per group/queue']), tip('Set the **visibility timeout** above your processing time (≥ 6× the Lambda timeout for Lambda consumers), otherwise messages reappear and get processed twice.')]],
-            ['SNS — topics', [text('**Pub/sub fan-out.** Publish once; SNS pushes a copy to every subscriber: SQS queues, Lambda functions, HTTP endpoints, email, SMS. Subscription **filter policies** let each subscriber receive only the messages it cares about.')]],
-            ['EventBridge — event bus', [text('**Content-based routing.** Services put structured events on a bus; **rules** match on event content and route to targets. Also receives events from AWS services and SaaS partners, and runs **schedules** (EventBridge Scheduler).'), code('json', `{
+            ['SQS: queues', [text('**Point-to-point.** Producers send messages; consumers poll and delete them after processing. Each message is processed by one consumer.'), table(['', 'Standard', 'FIFO'], ['Ordering', 'Best-effort', 'Strict (per message group)'], ['Delivery', 'At-least-once', 'Exactly-once processing'], ['Throughput', 'Nearly unlimited', 'High, but capped per group/queue']), tip('Set the **visibility timeout** above your processing time (≥ 6× the Lambda timeout for Lambda consumers), otherwise messages reappear and get processed twice.')]],
+            ['SNS: topics', [text('**Pub/sub fan-out.** Publish once; SNS pushes a copy to every subscriber: SQS queues, Lambda functions, HTTP endpoints, email, SMS. Subscription **filter policies** let each subscriber receive only the messages it cares about.')]],
+            ['EventBridge: event bus', [text('**Content-based routing.** Services put structured events on a bus; **rules** match on event content and route to targets. Also receives events from AWS services and SaaS partners, and runs **schedules** (EventBridge Scheduler).'), code('json', `{
   "source": ["com.acme.orders"],
   "detail-type": ["OrderPlaced"],
   "detail": { "total": [{ "numeric": [">", 500] }] }
@@ -183,7 +183,7 @@ resource "aws_sqs_queue" "orders" {
     maxReceiveCount     = 5
   })
 }`, 'queues.tf')]],
-            ['Idempotency', [text('At-least-once delivery means **duplicates happen**. Make consumers idempotent — e.g. record processed message IDs in DynamoDB with a conditional write, so a replay does nothing.')]],
+            ['Idempotency', [text('At-least-once delivery means **duplicates happen**. Make consumers idempotent, for example by recording processed message IDs in DynamoDB with a conditional write, so a replay does nothing.')]],
             ['Step Functions', [text('When a process has many steps, branches, retries and waits (“charge card → reserve stock → ship → email”), model it as a **Step Functions** state machine instead of chaining queues. You get visual execution history, built-in retries/catch, and 200+ direct service integrations.')]]
           ),
           example('Ticketing platform on sale day: API Gateway writes purchase requests straight into SQS (no Lambda in the hot path). A fleet of consumers drains the queue at a rate the payments provider can handle. Users see “you’re in the queue” instead of errors.'),
@@ -218,12 +218,12 @@ resource "aws_sqs_queue" "orders" {
           table(
             ['Routing policy', 'What it does'],
             ['Simple', 'One record, one answer'],
-            ['Weighted', 'Split traffic by percentage — canary releases'],
+            ['Weighted', 'Split traffic by percentage (canary releases)'],
             ['Latency', 'Send users to the region with the lowest latency'],
-            ['Failover', 'Primary/secondary with health checks — disaster recovery'],
-            ['Geolocation / Geoproximity', 'Route by user location — compliance, localisation']
+            ['Failover', 'Primary/secondary with health checks (disaster recovery)'],
+            ['Geolocation / Geoproximity', 'Route by user location (compliance, localisation)']
           ),
-          tip('**Alias records** point your domain (even the zone apex, `acme.com`) at CloudFront, ALBs, API Gateway or S3 — free queries, and they follow the target’s IPs automatically.')
+          tip('**Alias records** point your domain (even the zone apex, `acme.com`) at CloudFront, ALBs, API Gateway or S3. Queries are free, and they follow the target’s IPs automatically.')
         ]
       },
       {
@@ -252,7 +252,7 @@ resource "aws_sqs_queue" "orders" {
               { from: 'cf', to: 'alb', label: '/api/*', flow: true }
             ],
             300,
-            'One domain, two origins: static assets from S3 and API calls to the ALB — all through a single CloudFront distribution.'
+            'One domain, two origins: static assets from S3 and API calls to the ALB, all through a single CloudFront distribution.'
           ),
           warn('The ACM certificate for a CloudFront distribution **must be created in `us-east-1`**, whatever region your app runs in. In Terraform, use a second aliased provider for that region.')
         ]
@@ -317,7 +317,7 @@ resource "aws_sqs_queue" "orders" {
   alarm_actions       = [aws_sns_topic.oncall.arn]
 }`, 'alarms.tf'),
           accordion(
-            ['What should I alarm on?', [text('Alarm on **symptoms users feel** — error rate, latency (p99), queue age, DLQ depth — rather than every CPU spike. Too many noisy alarms and people stop reading them.')]],
+            ['What should I alarm on?', [text('Alarm on **symptoms users feel** (error rate, latency at p99, queue age, DLQ depth) rather than every CPU spike. Too many noisy alarms and people stop reading them.')]],
             ['Composite alarms', [text('Combine alarms with AND/OR logic to reduce noise, e.g. page only if errors are high **and** latency is high.')]],
             ['Anomaly detection', [text('Let CloudWatch learn a metric’s normal daily/weekly pattern and alarm on deviations instead of fixed thresholds.')]]
           )

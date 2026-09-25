@@ -1,6 +1,8 @@
 <script lang="ts">
+  import WidgetFrame from './WidgetFrame.svelte';
   import Icon from '../Icon.svelte';
   import { highlight } from '../../highlight';
+  import { scrollable } from '../../actions';
 
   type Attrs = Record<string, string | number | boolean>;
   interface Res {
@@ -162,20 +164,18 @@
   }
 </script>
 
-<div class="wbox">
-  <div class="whead"><span class="wtag">Interactive</span><h4>The Terraform core workflow</h4></div>
-
+<WidgetFrame title="The Terraform core workflow">
   <div class="grid">
-    <div class="edit">
-      <span class="eyebrow">1 · Write — configuration</span>
+    <fieldset class="edit">
+      <legend class="eyebrow">1 · Write the configuration</legend>
       {#each cfg as r}
         <div class="res" class:off={!r.enabled}>
-          <label class="head"><input type="checkbox" bind:checked={r.enabled} /> <code>{r.addr}</code></label>
+          <label class="head"><input type="checkbox" bind:checked={r.enabled} /> <code>{r.addr}</code><span class="sr-only">{r.enabled ? '' : ' (not in configuration)'}</span></label>
           {#if r.enabled}
             <div class="attrs">
               {#each Object.keys(r.attrs) as k}
                 <label>
-                  <span>{k}{r.forceNew.includes(k) ? ' *' : ''}</span>
+                  <span>{k}{#if r.forceNew.includes(k)}<span aria-hidden="true"> *</span><span class="sr-only"> (changing this forces replacement)</span>{/if}</span>
                   {#if typeof r.attrs[k] === 'boolean'}
                     <input type="checkbox" checked={r.attrs[k] === true} onchange={(e) => (r.attrs[k] = e.currentTarget.checked)} />
                   {:else if typeof r.attrs[k] === 'number'}
@@ -189,25 +189,25 @@
           {/if}
         </div>
       {/each}
-      <p class="faint tiny">* changing this argument forces the resource to be destroyed and re-created.</p>
-    </div>
+      <p class="faint tiny" aria-hidden="true">* Changing this argument forces the resource to be destroyed and re-created.</p>
+    </fieldset>
 
     <div class="side">
-      <span class="eyebrow">main.tf</span>
-      <pre class="hcl"><code>{@html highlight(hcl, 'hcl')}</code></pre>
-      <span class="eyebrow">terraform.tfstate · serial {serial}</span>
-      <div class="state">
+      <p class="eyebrow">main.tf</p>
+      <pre class="hcl" use:scrollable><code>{@html highlight(hcl, 'hcl')}</code></pre>
+      <p class="eyebrow">terraform.tfstate · serial {serial}</p>
+      <ul class="state" aria-label="Resources in state">
         {#each Object.keys(tfstate) as a (a)}
-          <div class="sr fade-in"><Icon name="check" size={13} /> {a}</div>
+          <li class="sr fade-in"><Icon name="check" size={13} /> {a}</li>
         {:else}
-          <div class="faint">empty — nothing managed yet</div>
+          <li class="faint">Empty: nothing is managed yet</li>
         {/each}
-      </div>
+      </ul>
     </div>
   </div>
 
-  <div class="cmds">
-    <span class="eyebrow">2 · Plan &amp; 3 · Apply</span>
+  <div class="cmds" role="group" aria-label="Terraform commands">
+    <span class="eyebrow">2 · Plan and 3 · Apply</span>
     <button class="btn sm" class:primary={!initialized} onclick={init}>terraform init</button>
     <button class="btn sm" class:primary={initialized && !planned && pending.length > 0} onclick={plan}>plan</button>
     <button class="btn sm" class:primary={planned && pending.length > 0} onclick={apply}>apply</button>
@@ -215,10 +215,10 @@
     <span class="spacer"></span>
     {#if initialized}<span class="chip">{pending.length} pending change{pending.length === 1 ? '' : 's'}</span>{/if}
   </div>
-  <div class="term">
-    {#each out as l, i (i)}<div class={cls(l)}>{l || ' '}</div>{/each}
+  <div class="term" use:scrollable role="log" aria-live="polite" aria-label="Terminal output">
+    {#each out as l, i (i)}<div class={cls(l)}>{l || '\u00a0'}</div>{/each}
   </div>
-</div>
+</WidgetFrame>
 
 <style>
   .grid {
@@ -239,7 +239,28 @@
     background: var(--surface);
   }
   .res.off {
-    opacity: 0.6;
+    border-style: dashed;
+    background: none;
+  }
+  .res.off code {
+    color: var(--text-2);
+  }
+  fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  legend {
+    padding: 0;
+  }
+  .side .eyebrow {
+    margin: 0;
+  }
+  .hcl:focus-visible,
+  .term:focus-visible {
+    outline: 2px solid #67e8f9;
+    outline-offset: -2px;
   }
   .head {
     display: flex;
@@ -291,6 +312,7 @@
     padding: 0;
   }
   .state {
+    list-style: none;
     margin-top: 6px;
     padding: 8px 10px;
     border-radius: 10px;
@@ -303,7 +325,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    color: var(--ok);
+    color: var(--ok-fg);
   }
   .cmds {
     display: flex;

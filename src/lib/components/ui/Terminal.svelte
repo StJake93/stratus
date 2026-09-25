@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '../Icon.svelte';
+  import { settings } from '../../stores/settings.svelte';
 
   let { title = 'terminal', lines }: { title?: string; lines: { cmd?: string; out?: string }[] } = $props();
 
@@ -11,8 +12,15 @@
   let cancel = false;
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const all = () =>
+    lines.flatMap((l) => [...(l.cmd ? [{ kind: 'cmd' as const, text: l.cmd }] : []), ...(l.out ? l.out.split('\n').map((t) => ({ kind: 'out' as const, text: t })) : [])]);
 
   async function run() {
+    if (settings.reduced) {
+      shown = all();
+      finished = true;
+      return;
+    }
     cancel = false;
     running = true;
     finished = false;
@@ -45,10 +53,7 @@
 
   function skip() {
     cancel = true;
-    shown = lines.flatMap((l) => [
-      ...(l.cmd ? [{ kind: 'cmd' as const, text: l.cmd }] : []),
-      ...(l.out ? l.out.split('\n').map((t) => ({ kind: 'out' as const, text: t })) : [])
-    ]);
+    shown = all();
     running = false;
     finished = true;
   }
@@ -57,7 +62,7 @@
   function cls(t: string) {
     const s = t.trimStart();
     if (/^\+ |created|Apply complete|Success|successfully|✓/.test(s)) return 'g';
-    if (/^- |destroyed|Error|error:/.test(s)) return 'r';
+    if (/^- aws_|destroyed|Error|error:/.test(s)) return 'r';
     if (/^~ |will be updated|Warning/.test(s)) return 'y';
     if (/^Plan:|^#/.test(s)) return 'b';
     return '';
@@ -66,24 +71,25 @@
 
 <div class="term">
   <header>
-    <span class="dots"><i></i><i></i><i></i></span>
+    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
     <span class="t"><Icon name="square-terminal" size={13} /> {title}</span>
     {#if running}
-      <button class="btn sm ghost" onclick={skip}>Skip</button>
+      <button class="btn sm ghost" onclick={skip}>Skip to end</button>
     {:else}
-      <button class="btn sm" onclick={run}><Icon name={finished ? 'rotate-ccw' : 'play'} size={13} /> {finished ? 'Replay' : 'Run'}</button>
+      <button class="btn sm" onclick={run}><Icon name={finished ? 'rotate-ccw' : 'play'} size={13} /> {finished ? 'Replay' : 'Run'}<span class="sr-only"> {title}</span></button>
     {/if}
   </header>
-  <div class="body" bind:this={body}>
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <div class="body" bind:this={body} tabindex="0" role="log" aria-label="{title} output" aria-busy={running}>
     {#if !shown.length}
       <div class="idle">
-        {#each lines.filter((l) => l.cmd) as l}<div><span class="p">$</span> {l.cmd}</div>{/each}
-        <div class="hint">▶ Press Run to execute</div>
+        {#each lines.filter((l) => l.cmd) as l}<div><span class="p" aria-hidden="true">$</span> {l.cmd}</div>{/each}
+        <div class="hint">Press Run to execute these commands.</div>
       </div>
     {/if}
     {#each shown as s}
       {#if s.kind === 'cmd'}
-        <div class="cmd"><span class="p">$</span> {s.text}{#if running && s === shown[shown.length - 1]}<span class="cur"></span>{/if}</div>
+        <div class="cmd"><span class="p" aria-hidden="true">$</span> {s.text}{#if running && s === shown[shown.length - 1]}<span class="cur" aria-hidden="true"></span>{/if}</div>
       {:else}
         <div class="out {cls(s.text)}">{s.text || ' '}</div>
       {/if}
@@ -100,7 +106,7 @@
     overflow: hidden;
     font-family: var(--mono);
     font-size: 0.8rem;
-    color: #c8d1e6;
+    color: #d6deeb;
   }
   header {
     display: flex;
@@ -108,11 +114,19 @@
     gap: 10px;
     padding: 6px 8px 6px 14px;
     background: #0d1220;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     font-family: var(--font);
   }
   header .btn {
-    color: #c8d1e6;
+    color: #d6deeb;
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.06);
+  }
+  header .btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  header .btn:focus-visible {
+    outline-color: #67e8f9;
   }
   .dots {
     display: flex;
@@ -136,7 +150,7 @@
     align-items: center;
     gap: 6px;
     font-size: 0.76rem;
-    color: #7c869e;
+    color: #a3adc2;
   }
   .body {
     padding: 12px 16px;
@@ -146,19 +160,25 @@
     white-space: pre-wrap;
     line-height: 1.55;
   }
+  .body:focus-visible {
+    outline: 2px solid #67e8f9;
+    outline-offset: -2px;
+  }
   .p {
     color: #22d3ee;
     user-select: none;
   }
   .cmd {
-    color: #fff;
+    color: #ffffff;
   }
   .idle {
-    color: #7c869e;
+    color: #a3adc2;
   }
   .hint {
     margin-top: 6px;
-    color: #4b556b;
+    color: #a3adc2;
+    font-family: var(--font);
+    font-style: italic;
   }
   .g {
     color: #34d399;

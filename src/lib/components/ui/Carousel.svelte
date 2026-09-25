@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import Icon from '../Icon.svelte';
+  import { headingLevel, tag } from '../../heading';
 
-  let { titles, slide }: { titles: string[]; slide: Snippet<[number]> } = $props();
+  let { titles, slide, label = 'Slides' }: { titles: string[]; slide: Snippet<[number]>; label?: string } = $props();
+  const level = headingLevel();
   let i = $state(0);
   let dir = $state(1);
   let startX = 0;
@@ -14,6 +16,8 @@
   };
 
   function key(e: KeyboardEvent) {
+    // Only when the carousel itself has focus, so arrow keys inside slide content keep working.
+    if (e.target !== e.currentTarget) return;
     if (e.key === 'ArrowRight') go(i + 1);
     if (e.key === 'ArrowLeft') go(i - 1);
   }
@@ -25,6 +29,7 @@
   class="car"
   tabindex="0"
   aria-roledescription="carousel"
+  aria-label={label}
   onkeydown={key}
   ontouchstart={(e) => (startX = e.touches[0].clientX)}
   ontouchend={(e) => {
@@ -33,21 +38,21 @@
   }}
 >
   <header>
-    <span class="count">{i + 1} / {titles.length}</span>
-    <h4>{titles[i]}</h4>
+    <span class="count" aria-hidden="true">{i + 1} / {titles.length}</span>
+    <svelte:element this={tag(level)} class="title">{titles[i]}</svelte:element>
     <div class="nav">
-      <button class="btn sm ghost" aria-label="Previous" disabled={i === 0} onclick={() => go(i - 1)}><Icon name="chevron-left" /></button>
-      <button class="btn sm ghost" aria-label="Next" disabled={i === titles.length - 1} onclick={() => go(i + 1)}><Icon name="chevron-right" /></button>
+      <button class="btn sm ghost" aria-label="Previous slide" disabled={i === 0} onclick={() => go(i - 1)}><Icon name="chevron-left" /></button>
+      <button class="btn sm ghost" aria-label="Next slide" disabled={i === titles.length - 1} onclick={() => go(i + 1)}><Icon name="chevron-right" /></button>
     </div>
   </header>
-  <div class="viewport">
+  <div class="viewport" aria-live="polite">
     {#key i}
-      <div class="slide" style:--dir={dir}>{@render slide(i)}</div>
+      <div class="slide" style:--dir={dir} role="group" aria-roledescription="slide" aria-label="{i + 1} of {titles.length}: {titles[i]}">{@render slide(i)}</div>
     {/key}
   </div>
   <footer>
     {#each titles as t, n}
-      <button class="dot" class:on={n === i} class:past={n < i} aria-label="Go to {t}" onclick={() => go(n)}></button>
+      <button class="dot" class:on={n === i} class:past={n < i} aria-label="Slide {n + 1}: {t}" aria-current={n === i ? 'true' : undefined} onclick={() => go(n)}><span></span></button>
     {/each}
   </footer>
 </section>
@@ -71,7 +76,7 @@
     gap: 12px;
     padding: 14px 16px 0 20px;
   }
-  h4 {
+  .title {
     margin: 0;
     flex: 1;
     font-size: 1.02rem;
@@ -79,8 +84,9 @@
   .count {
     font-family: var(--mono);
     font-size: 0.75rem;
-    color: var(--accent-2);
-    background: var(--surface-2);
+    font-weight: 600;
+    color: var(--accent-2-fg);
+    background: var(--accent-2-soft);
     padding: 2px 8px;
     border-radius: 6px;
   }
@@ -107,22 +113,34 @@
   }
   footer {
     display: flex;
-    gap: 6px;
-    padding: 6px 20px 16px;
+    gap: 4px;
+    padding: 0 16px 8px;
   }
+  /* 24px tall hit area around a 4px bar (WCAG 2.5.8). */
   .dot {
     flex: 1;
+    height: 24px;
+    display: grid;
+    align-items: center;
+    border: 0;
+    padding: 0 2px;
+    background: none;
+    border-radius: 6px;
+  }
+  .dot span {
     height: 4px;
     border-radius: 4px;
-    border: 0;
-    padding: 0;
-    background: var(--surface-3);
+    background: var(--track);
     transition: background 0.3s;
   }
-  .dot.past {
-    background: color-mix(in srgb, var(--accent) 50%, var(--surface-3));
+  .dot:hover span {
+    background: var(--text-3);
   }
-  .dot.on {
+  .dot.past span {
+    background: color-mix(in srgb, var(--accent) 55%, var(--track));
+  }
+  .dot.on span {
     background: var(--grad);
+    height: 6px;
   }
 </style>

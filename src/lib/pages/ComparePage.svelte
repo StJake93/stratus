@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import Icon from '../components/Icon.svelte';
   import Tabs from '../components/ui/Tabs.svelte';
   import { CONCEPTS, CONCEPT } from '../data/compare';
   import { href, router } from '../stores/router.svelte';
   import { progress } from '../stores/progress.svelte';
   import { md } from '../md';
+  import { scrollable } from '../actions';
 
   let { concept }: { concept?: string } = $props();
 
@@ -17,10 +19,11 @@
     CONCEPTS.filter((c) => (cat === 'All' || c.category === cat) && (!q || JSON.stringify(c).toLowerCase().includes(q.toLowerCase())))
   );
   const sel = $derived(CONCEPT[concept ?? ''] ?? list[0] ?? CONCEPTS[0]);
+  // color is decorative (borders, tints); fg is the text-safe variant.
   const providers = [
-    { key: 'aws', label: 'AWS', color: 'var(--aws)' },
-    { key: 'azure', label: 'Azure', color: 'var(--azure)' },
-    { key: 'gcp', label: 'Google Cloud', color: 'var(--gcp)' }
+    { key: 'aws', label: 'AWS', color: 'var(--aws)', fg: 'var(--aws-fg)' },
+    { key: 'azure', label: 'Azure', color: 'var(--azure)', fg: 'var(--azure-fg)' },
+    { key: 'gcp', label: 'Google Cloud', color: 'var(--gcp)', fg: 'var(--gcp-fg)' }
   ] as const;
 
   // ---------- match game ----------
@@ -38,21 +41,31 @@
     const options = pool.slice(0, 4).sort(() => Math.random() - 0.5);
     return { answer, from, to, options };
   }
-  function pick(i: number) {
+  let nextBtn: HTMLButtonElement | undefined = $state();
+  let firstOpt: HTMLButtonElement | undefined = $state();
+  async function pick(i: number) {
     if (picked !== null) return;
     picked = i;
+    tick().then(() => nextBtn?.focus());
     score.total++;
     if (round.options[i].id === round.answer.id) {
       score.right++;
       if (score.right % 5 === 0) progress.addXp(20, `${score.right} cloud matches!`);
     }
   }
-  function next() {
+  async function next() {
     round = newRound();
     picked = null;
+    await tick();
+    firstOpt?.focus();
   }
   const label = (k: P) => providers.find((p) => p.key === k)!.label;
+  const fgOf = (k: P) => providers.find((p) => p.key === k)!.fg;
 </script>
+
+{#snippet verdict(state: string)}
+  {#if state === 'right'}<span class="sr-only"> (correct answer)</span>{:else if state === 'wrong'}<span class="sr-only"> (your answer, incorrect)</span>{/if}
+{/snippet}
 
 <div class="page">
   <header class="head fade-in">
@@ -66,19 +79,21 @@
       {#if i === 0}
         <div class="explore">
           <aside class="list">
-            <div class="search"><Icon name="search" size={15} /><input placeholder="Search e.g. queue, kubernetes…" bind:value={q} /></div>
-            <div class="cats">
-              {#each cats as c}<button class:on={cat === c} onclick={() => (cat = c)}>{c}</button>{/each}
+            <div class="search"><Icon name="search" size={15} /><input type="search" aria-label="Search concepts" placeholder="Search, e.g. queue or kubernetes…" bind:value={q} /></div>
+            <div class="cats" role="group" aria-label="Filter by category">
+              {#each cats as c}<button aria-pressed={cat === c} onclick={() => (cat = c)}>{c}</button>{/each}
             </div>
-            <div class="items">
+            <ul class="items focus-inset" aria-label="Concepts">
               {#each list as c (c.id)}
-                <button class="it" class:on={sel.id === c.id} onclick={() => router.go(href.compare(c.id))}>
-                  <Icon name={c.icon} size={16} /> {c.title}
-                </button>
+                <li>
+                  <button class="it" class:on={sel.id === c.id} aria-current={sel.id === c.id ? 'true' : undefined} onclick={() => router.go(href.compare(c.id))}>
+                    <Icon name={c.icon} size={16} /> {c.title}
+                  </button>
+                </li>
               {:else}
-                <p class="faint">No matches.</p>
+                <li class="faint" role="status">No matches.</li>
               {/each}
-            </div>
+            </ul>
           </aside>
           {#key sel.id}
             <section class="detail fade-in">
@@ -93,12 +108,12 @@
               <div class="cols">
                 {#each providers as p}
                   {@const o = sel[p.key]}
-                  <div class="col" style:--pc={p.color}>
+                  <div class="col" style:--pc={p.color} style:--pfg={p.fg}>
                     <span class="pl">{p.label}</span>
                     <h3>{o.name}</h3>
                     <div class="bl">{@html md(o.blurb)}</div>
-                    <code class="tf">{o.tf}</code>
-                    <a href={o.docs} target="_blank" rel="noopener" class="dl">Docs <Icon name="external-link" size={12} /></a>
+                    <code class="tf"><span class="sr-only">Terraform resource: </span>{o.tf}</code>
+                    <a href={o.docs} target="_blank" rel="noopener" class="dl">{p.label} docs <Icon name="external-link" size={12} /><span class="sr-only"> for {o.name} (opens in a new tab)</span></a>
                   </div>
                 {/each}
               </div>
@@ -110,13 +125,16 @@
           {/key}
         </div>
       {:else if i === 1}
-        <div class="matrix-wrap">
+        <div class="matrix-wrap" use:scrollable role="region" aria-label="Service matrix">
           <table class="matrix">
-            <thead><tr><th>Concept</th>{#each providers as p}<th style:color={p.color}>{p.label}</th>{/each}</tr></thead>
+            <caption class="sr-only">Equivalent services on AWS, Azure and Google Cloud, with Terraform resource types</caption>
+            <thead><tr><th scope="col">Concept</th>{#each providers as p}<th scope="col" style:color={p.fg}>{p.label}</th>{/each}</tr></thead>
             <tbody>
               {#each CONCEPTS as c (c.id)}
-                <tr onclick={() => ((mode = 0), router.go(href.compare(c.id)))}>
-                  <td class="c"><Icon name={c.icon} size={15} /> {c.title}</td>
+                <tr>
+                  <th scope="row" class="c">
+                    <button class="rowbtn" onclick={() => ((mode = 0), router.go(href.compare(c.id)))}><Icon name={c.icon} size={15} /> {c.title}<span class="sr-only">: open details</span></button>
+                  </th>
                   {#each providers as p}<td>{c[p.key].name}<small>{c[p.key].tf}</small></td>{/each}
                 </tr>
               {/each}
@@ -125,25 +143,33 @@
         </div>
       {:else}
         <div class="game">
-          <div class="score"><Icon name="target" size={16} /> {score.right} / {score.total} correct</div>
+          <div class="score" aria-live="polite"><Icon name="target" size={16} /> {score.right} of {score.total} correct</div>
           {#key round}
             <div class="card-q fade-in">
-              <p class="ask">What is the <strong style:color={providers.find((p) => p.key === round.to)!.color}>{label(round.to)}</strong> equivalent of…</p>
-              <div class="svc" style:--pc={providers.find((p) => p.key === round.from)!.color}>
+              <p class="ask" id="game-q">What is the <strong style:color={fgOf(round.to)}>{label(round.to)}</strong> equivalent of <span class="sr-only">{label(round.from)} {round.answer[round.from].name}?</span></p>
+              <div class="svc" style:--pc={providers.find((p) => p.key === round.from)!.color} style:--pfg={fgOf(round.from)} aria-hidden="true">
                 <span class="pl">{label(round.from)}</span>
                 <strong>{round.answer[round.from].name}</strong>
               </div>
-              <div class="opts">
+              <div class="opts" role="group" aria-labelledby="game-q">
                 {#each round.options as o, n}
                   {@const state = picked === null ? '' : o.id === round.answer.id ? 'right' : n === picked ? 'wrong' : 'dim'}
-                  <button class="opt {state}" disabled={picked !== null} onclick={() => pick(n)}>{o[round.to].name}</button>
+                  {#if n === 0}
+                    <button class="opt {state}" bind:this={firstOpt} aria-disabled={picked !== null} onclick={() => pick(n)}>{o[round.to].name}{@render verdict(state)}</button>
+                  {:else}
+                    <button class="opt {state}" aria-disabled={picked !== null} onclick={() => pick(n)}>{o[round.to].name}{@render verdict(state)}</button>
+                  {/if}
                 {/each}
               </div>
+              <div aria-live="polite">
+                {#if picked !== null}
+                  <div class="expl fade-in">
+                    <p><strong>{round.options[picked].id === round.answer.id ? 'Correct.' : 'Not quite.'} {round.answer.title}:</strong> {round.answer.aws.name} ↔ {round.answer.azure.name} ↔ {round.answer.gcp.name}</p>
+                  </div>
+                {/if}
+              </div>
               {#if picked !== null}
-                <div class="expl fade-in">
-                  <p><strong>{round.answer.title}:</strong> {round.answer.aws.name} ↔ {round.answer.azure.name} ↔ {round.answer.gcp.name}</p>
-                  <button class="btn primary sm" onclick={next}>Next <Icon name="arrow-right" size={14} /></button>
-                </div>
+                <button class="btn primary sm" bind:this={nextBtn} onclick={next}>Next question <Icon name="arrow-right" size={14} /></button>
               {/if}
             </div>
           {/key}
@@ -175,11 +201,15 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
+    padding: 6px 10px;
     border-radius: 10px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    color: var(--text-3);
+    background: var(--surface);
+    border: 1px solid var(--border-input);
+    color: var(--text-2);
+  }
+  .search:focus-within {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
   }
   .search input {
     flex: 1;
@@ -196,31 +226,37 @@
     margin: 10px 0;
   }
   .cats button {
-    border: 1px solid var(--border);
+    min-height: 26px;
+    border: 1px solid var(--border-strong);
     background: none;
     border-radius: 999px;
-    padding: 2px 9px;
-    font-size: 0.72rem;
+    padding: 2px 10px;
+    font-size: 0.74rem;
     font-weight: 600;
     color: var(--text-2);
   }
-  .cats button.on {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
+  .cats button[aria-pressed='true'] {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: #ffffff;
   }
   .items {
+    list-style: none;
+    margin: 0;
+    padding: 2px;
     display: grid;
     gap: 2px;
     max-height: 60vh;
     overflow-y: auto;
   }
   .it {
+    width: 100%;
     display: flex;
     align-items: center;
     gap: 9px;
+    min-height: 36px;
     text-align: left;
-    padding: 8px 10px;
+    padding: 7px 10px;
     border: 0;
     border-radius: 9px;
     background: none;
@@ -272,11 +308,11 @@
     background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 9%, transparent), transparent 50%), var(--surface);
   }
   .pl {
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--pc);
+    color: var(--pfg);
   }
   .col h3 {
     margin: 6px 0 8px;
@@ -293,8 +329,8 @@
   .tf {
     align-self: flex-start;
     margin: 6px 0 10px;
-    font-size: 0.74rem;
-    color: #b79dff;
+    font-size: 0.76rem;
+    color: var(--tf-fg);
   }
   .dl {
     display: inline-flex;
@@ -319,7 +355,7 @@
     margin: 0;
     padding-left: 1.2em;
     color: var(--text-2);
-    font-size: 0.9rem;
+    font-size: 0.92rem;
   }
   .diffs li {
     margin: 4px 0;
@@ -337,7 +373,7 @@
     border-collapse: collapse;
     font-size: 0.86rem;
   }
-  .matrix th {
+  .matrix thead th {
     text-align: left;
     padding: 12px 14px;
     background: var(--surface-2);
@@ -355,22 +391,36 @@
   .matrix td small {
     display: block;
     font-family: var(--mono);
-    font-size: 0.7rem;
-    color: var(--text-3);
+    font-size: 0.72rem;
+    color: var(--text-2);
   }
-  .matrix td.c {
-    font-weight: 600;
+  .matrix th.c {
+    border-top: 1px solid var(--border);
+    padding: 4px 6px;
+    text-align: left;
     white-space: nowrap;
   }
-  .matrix td.c :global(svg) {
-    vertical-align: -3px;
-    color: var(--accent-2);
-    margin-right: 4px;
+  .rowbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    font-weight: 600;
+    text-align: left;
   }
-  .matrix tr {
-    cursor: pointer;
+  .rowbtn :global(svg) {
+    color: var(--accent-2-fg);
   }
-  .matrix tbody tr:hover td {
+  .rowbtn:hover {
+    background: var(--surface-2);
+    text-decoration: underline;
+  }
+  .matrix tbody tr:hover td,
+  .matrix tbody tr:hover th {
     background: var(--surface);
   }
   .game {
@@ -383,7 +433,7 @@
     gap: 8px;
     justify-content: flex-end;
     font-weight: 700;
-    color: var(--accent-2);
+    color: var(--accent-2-fg);
     margin-bottom: 10px;
   }
   .card-q {
@@ -414,30 +464,34 @@
     gap: 8px;
   }
   .opt {
+    min-height: 44px;
     padding: 12px;
     border-radius: 12px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     background: var(--surface-2);
     font-weight: 600;
     font-size: 0.88rem;
     transition: all 0.2s;
   }
-  .opt:not(:disabled):hover {
+  .opt[aria-disabled='false']:hover {
     border-color: var(--accent);
     transform: translateY(-2px);
   }
+  .opt[aria-disabled='true'] {
+    cursor: default;
+  }
   .opt.right {
     background: var(--ok-soft);
-    border-color: var(--ok);
-    color: var(--ok);
+    border: 2px solid var(--ok);
+    color: var(--ok-fg);
   }
   .opt.wrong {
     background: var(--err-soft);
-    border-color: var(--err);
-    color: var(--err);
+    border: 2px dashed var(--err);
+    color: var(--err-fg);
   }
   .opt.dim {
-    opacity: 0.45;
+    color: var(--text-2);
   }
   .expl {
     margin-top: 16px;

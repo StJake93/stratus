@@ -26,7 +26,7 @@
         <span class="chip"><Icon name="timer" size={13} /> ~{mins} min</span>
         <span class="chip"><Icon name="check" size={13} /> {done}/{lessons.length} complete</span>
       </div>
-      <div class="bar"><span style:width="{(done / Math.max(1, lessons.length)) * 100}%"></span></div>
+      <div class="bar" role="progressbar" aria-label="Track progress" aria-valuemin={0} aria-valuemax={lessons.length} aria-valuenow={done}><span style:width="{(done / Math.max(1, lessons.length)) * 100}%"></span></div>
     </header>
 
     <ol class="list">
@@ -35,10 +35,10 @@
         {@const steps = progress.d.steps[l.id]?.length ?? 0}
         <li class="fade-in" style:animation-delay="{i * 50}ms">
           <a class="lesson" class:done={d} href={href.lesson(l.id)}>
-            <span class="num">{#if d}<Icon name="check" size={16} stroke={3} />{:else}{i + 1}{/if}</span>
-            <span class="ic"><Icon name={l.icon} size={22} /></span>
+            <span class="num" aria-hidden="true">{#if d}<Icon name="check" size={16} stroke={3} />{:else}{i + 1}{/if}</span>
+            <span class="ic" aria-hidden="true"><Icon name={l.icon} size={22} /></span>
             <div class="body">
-              <h3>{l.title}</h3>
+              <h2 class="lt">{l.title}{#if d}<span class="sr-only"> (completed)</span>{/if}</h2>
               <p>{l.summary}</p>
               <div class="tags">
                 <span>{l.level}</span><span>{l.minutes} min</span><span>{l.steps.length} steps</span>
@@ -61,7 +61,7 @@
               <strong>{s.title}</strong>
               <small>{s.difficulty} · {s.steps.length} goals</small>
             </div>
-            {#if progress.scenarioDone(s.id)}<Icon name="circle-check" size={18} />{/if}
+            {#if progress.scenarioDone(s.id)}<span class="okc"><Icon name="circle-check" size={18} /></span><span class="sr-only">(completed)</span>{/if}
           </a>
         {/each}
       </div>
@@ -90,7 +90,7 @@
   }
   .head .eyebrow {
     display: block;
-    color: var(--tc);
+    color: color-mix(in oklab, var(--tc), var(--ink) var(--ink-mix));
   }
   .head h1 {
     margin: 6px 0 8px;
@@ -107,7 +107,7 @@
   .bar {
     height: 6px;
     border-radius: 6px;
-    background: var(--surface-3);
+    background: var(--track);
     overflow: hidden;
   }
   .bar span {
@@ -175,7 +175,7 @@
     flex: 1;
     min-width: 0;
   }
-  .body h3 {
+  .body .lt {
     margin: 0 0 3px;
     font-size: 1.02rem;
   }
@@ -188,12 +188,12 @@
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    font-size: 0.74rem;
-    color: var(--text-3);
+    font-size: 0.76rem;
+    color: var(--text-2);
     font-weight: 600;
   }
   .tags .prog {
-    color: var(--tc);
+    color: color-mix(in oklab, var(--tc), var(--ink) var(--ink-mix));
   }
   .sub {
     margin: 36px 0 12px;
@@ -211,7 +211,7 @@
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--surface);
-    color: var(--accent-2);
+    color: var(--accent-2-fg);
     transition: border-color 0.2s;
   }
   .scn:hover {
@@ -229,8 +229,9 @@
   .scn small {
     color: var(--text-3);
   }
-  .scn > :global(svg:last-child) {
-    color: var(--ok);
+  .okc {
+    display: grid;
+    color: var(--ok-fg);
   }
   @media (max-width: 900px) {
     .page {

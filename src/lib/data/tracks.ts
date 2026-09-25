@@ -13,7 +13,7 @@ export const TRACKS: Track[] = [
     id: 'aws-core',
     provider: 'aws',
     title: 'AWS Essentials',
-    blurb: 'Identity, networking, virtual machines and storage — the building blocks under everything else.',
+    blurb: 'Identity, networking, virtual machines and storage: the building blocks under everything else.',
     color: '#ff9900',
     lessons: ['aws-iam', 'aws-vpc', 'aws-vpc-security', 'aws-ec2', 'aws-s3']
   },
@@ -21,7 +21,7 @@ export const TRACKS: Track[] = [
     id: 'aws-compute',
     provider: 'aws',
     title: 'Serverless & Containers',
-    blurb: 'Lambda, API Gateway, ECR, ECS/Fargate and EKS — modern ways to run code on AWS.',
+    blurb: 'Lambda, API Gateway, ECR, ECS/Fargate and EKS: modern ways to run code on AWS.',
     color: '#f97316',
     lessons: ['aws-lambda', 'aws-apigw', 'aws-ecr', 'aws-ecs', 'aws-eks']
   },

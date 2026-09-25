@@ -12,11 +12,11 @@
 
   let { id }: { id: string } = $props();
 
-  const META: Record<string, { name: string; color: string; tagline: string; docs: string; preview?: boolean }> = {
-    aws: { name: 'Amazon Web Services', color: 'var(--aws)', tagline: 'The largest cloud platform — 200+ services across 30+ regions. Start with identity and networking, then pick your compute style.', docs: 'https://docs.aws.amazon.com/' },
-    terraform: { name: 'HashiCorp Terraform', color: 'var(--tf)', tagline: 'Declarative infrastructure as code for every cloud. Write HCL, plan the change, apply it — the same workflow everywhere.', docs: 'https://developer.hashicorp.com/terraform' },
-    azure: { name: 'Microsoft Azure', color: 'var(--azure)', tagline: 'Microsoft’s cloud, deeply integrated with Entra ID, Windows and .NET. A full Azure track is on the roadmap — meanwhile, map what you know from AWS.', docs: 'https://learn.microsoft.com/en-us/azure/', preview: true },
-    gcp: { name: 'Google Cloud', color: 'var(--gcp)', tagline: 'Google’s cloud: global networking, GKE, Cloud Run and BigQuery. A full GCP track is on the roadmap — meanwhile, map what you know from AWS.', docs: 'https://docs.cloud.google.com/docs', preview: true }
+  const META: Record<string, { name: string; color: string; fg: string; tagline: string; docs: string; preview?: boolean }> = {
+    aws: { name: 'Amazon Web Services', color: 'var(--aws)', fg: 'var(--aws-fg)', tagline: 'The largest cloud platform, with 200+ services across 30+ regions. Start with identity and networking, then pick your compute style.', docs: 'https://docs.aws.amazon.com/' },
+    terraform: { name: 'HashiCorp Terraform', color: 'var(--tf)', fg: 'var(--tf-fg)', tagline: 'Declarative infrastructure as code for every cloud. Write HCL, plan the change and apply it: the same workflow everywhere.', docs: 'https://developer.hashicorp.com/terraform' },
+    azure: { name: 'Microsoft Azure', color: 'var(--azure)', fg: 'var(--azure-fg)', tagline: 'Microsoft’s cloud, deeply integrated with Entra ID, Windows and .NET. A full Azure track is on the roadmap. Meanwhile, map what you know from AWS.', docs: 'https://learn.microsoft.com/en-us/azure/', preview: true },
+    gcp: { name: 'Google Cloud', color: 'var(--gcp)', fg: 'var(--gcp-fg)', tagline: 'Google’s cloud: global networking, GKE, Cloud Run and BigQuery. A full GCP track is on the roadmap. Meanwhile, map what you know from AWS.', docs: 'https://docs.cloud.google.com/docs', preview: true }
   };
   const m = $derived(META[id]);
   const tracks = $derived(TRACKS.filter((t) => t.provider === id));
@@ -30,6 +30,13 @@
 
   let cat = $state('all');
   let open = $state<Service | null>(null);
+  let dlg: HTMLDialogElement | undefined = $state();
+  // Native modal dialog: focus trap, Escape to close and focus restoration come for free.
+  $effect(() => {
+    if (!dlg) return;
+    if (open && !dlg.open) dlg.showModal();
+    else if (!open && dlg.open) dlg.close();
+  });
   const catalog = $derived(SERVICES.filter((s) => s.category !== 'actors' && (cat === 'all' || s.category === cat)));
 
   const tfCheatsheet = [
@@ -64,13 +71,13 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
 </script>
 
 {#if m}
-  <div class="page" style:--pc={m.color}>
+  <div class="page" style:--pc={m.color} style:--pfg={m.fg}>
     <header class="hero fade-in">
-      <span class="badge">{#if m.preview}Preview{:else}Provider{/if}</span>
+      <p class="badge">{#if m.preview}Preview{:else}Provider{/if}</p>
       <h1>{m.name}</h1>
       <p class="lead muted">{m.tagline}</p>
       <div class="row">
-        <a class="btn" href={m.docs} target="_blank" rel="noopener"><Icon name="book-open" size={15} /> Official docs <Icon name="external-link" size={13} /></a>
+        <a class="btn" href={m.docs} target="_blank" rel="noopener"><Icon name="book-open" size={15} /> Official docs <Icon name="external-link" size={13} /><span class="sr-only"> (opens in a new tab)</span></a>
         {#if id === 'aws'}<a class="btn primary" href={href.play()}><Icon name="blocks" size={15} /> Build on the canvas</a>{/if}
         {#if m.preview}<a class="btn primary" href={href.compare()}><Icon name="git-compare" size={15} /> Compare with AWS</a>{/if}
       </div>
@@ -98,28 +105,30 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
     {#if id === 'aws'}
       <h2 class="sub">Service catalogue</h2>
       <p class="muted">Every building block available on the canvas. Click one for a quick briefing.</p>
-      <div class="cats">
-        <button class:on={cat === 'all'} onclick={() => (cat = 'all')}>All</button>
-        {#each CATEGORIES.filter((c) => c.id !== 'actors') as c}<button class:on={cat === c.id} onclick={() => (cat = c.id)} style:--cc={c.color}>{c.label}</button>{/each}
+      <div class="cats" role="group" aria-label="Filter by category">
+        <button aria-pressed={cat === 'all'} onclick={() => (cat = 'all')}>All</button>
+        {#each CATEGORIES.filter((c) => c.id !== 'actors') as c}<button aria-pressed={cat === c.id} onclick={() => (cat = c.id)} style:--cc={c.color}>{c.label}</button>{/each}
       </div>
-      <div class="catalog">
+      <ul class="catalog" aria-label="AWS services">
         {#each catalog as s (s.id)}
-          <button class="svc" onclick={() => (open = s)} style:--cc={categoryColor(s.category)}>
-            <span class="si"><Icon name={s.icon} size={20} /></span>
-            <strong>{s.name}</strong>
-            <small>{s.full}</small>
-          </button>
+          <li>
+            <button class="svc" onclick={() => (open = s)} style:--cc={categoryColor(s.category)} aria-haspopup="dialog">
+              <span class="si" aria-hidden="true"><Icon name={s.icon} size={20} /></span>
+              <strong>{s.name}</strong>
+              <small>{s.full}</small>
+            </button>
+          </li>
         {/each}
-      </div>
+      </ul>
       <h2 class="sub">Scenarios</h2>
       <div class="scns">
         {#each SCENARIOS.filter((s) => s.id !== 'tf-backend') as s (s.id)}
-          <a href={href.play(s.id)} class="scn"><Icon name={s.icon} size={16} /> {s.title} {#if progress.scenarioDone(s.id)}<Icon name="circle-check" size={15} />{/if}</a>
+          <a href={href.play(s.id)} class="scn"><Icon name={s.icon} size={16} /> {s.title} {#if progress.scenarioDone(s.id)}<span class="okc"><Icon name="circle-check" size={15} /></span><span class="sr-only">(completed)</span>{/if}</a>
         {/each}
       </div>
     {:else if id === 'terraform'}
       <h2 class="sub">Command cheat sheet</h2>
-      <Blocks blocks={tfCheatsheet} />
+      <Blocks blocks={tfCheatsheet} level={3} />
       <h2 class="sub">Practice</h2>
       <div class="scns">
         <a href={href.play('tf-backend')} class="scn"><Icon name="file-code" size={16} /> Terraform remote state backend</a>
@@ -148,30 +157,31 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
     {/if}
   </div>
 
-  {#if open}
-    {@const s = open}
-    <div class="drawer-scrim" role="presentation" onclick={() => (open = null)}></div>
-    <aside class="drawer glass" style:--cc={categoryColor(s.category)}>
-      <button class="x btn sm ghost" onclick={() => (open = null)} aria-label="Close"><Icon name="x" size={16} /></button>
-      <span class="si big"><Icon name={s.icon} size={28} /></span>
-      <h2>{s.full}</h2>
-      <p class="muted">{s.blurb}</p>
-      <dl>
-        <dt>Terraform resource</dt><dd><code>{s.tf || '—'}</code></dd>
-        <dt>Lives</dt>
-        <dd>{s.placement === 'subnet' ? 'Inside a VPC subnet' : s.placement === 'vpc' ? 'Attached to a VPC' : s.placement === 'optional-subnet' ? 'Outside a VPC, or attached to private subnets' : 'Regional / global — outside your VPC'}</dd>
-        {#if s.links && Object.keys(s.links).length}
-          <dt>Typically connects to</dt>
-          <dd class="links">{#each Object.entries(s.links) as [t, rel]}<span class="chip">{SERVICE[t]?.name} · {rel}</span>{/each}</dd>
-        {/if}
-      </dl>
-      <div class="row wrap">
-        {#if LESSON_FOR[s.id] && LESSON[LESSON_FOR[s.id]]}<a class="btn sm primary" href={href.lesson(LESSON_FOR[s.id])}><Icon name="graduation" size={14} /> Lesson</a>{/if}
-        <a class="btn sm" href={s.docs} target="_blank" rel="noopener"><Icon name="book-open" size={14} /> AWS docs</a>
-        <a class="btn sm" href={href.play()}><Icon name="blocks" size={14} /> Use on canvas</a>
+  <dialog class="drawer glass" bind:this={dlg} aria-labelledby="svc-title" onclose={() => (open = null)} onclick={(e) => e.target === dlg && (open = null)}>
+    {#if open}
+      {@const s = open}
+      <div class="dbody" style:--cc={categoryColor(s.category)}>
+        <button class="x btn sm ghost" onclick={() => (open = null)} aria-label="Close"><Icon name="x" size={16} /></button>
+        <span class="si big" aria-hidden="true"><Icon name={s.icon} size={28} /></span>
+        <h2 id="svc-title">{s.full}</h2>
+        <p class="muted">{s.blurb}</p>
+        <dl>
+          <dt>Terraform resource</dt><dd>{#if s.tf}<code>{s.tf}</code>{:else}None (represents something outside AWS){/if}</dd>
+          <dt>Lives</dt>
+          <dd>{s.placement === 'subnet' ? 'Inside a VPC subnet' : s.placement === 'vpc' ? 'Attached to a VPC' : s.placement === 'optional-subnet' ? 'Outside a VPC, or attached to private subnets' : 'Regional or global, outside your VPC'}</dd>
+          {#if s.links && Object.keys(s.links).length}
+            <dt>Typically connects to</dt>
+            <dd><ul class="links">{#each Object.entries(s.links) as [t, rel]}<li class="chip">{SERVICE[t]?.name} · {rel}</li>{/each}</ul></dd>
+          {/if}
+        </dl>
+        <div class="row wrap">
+          {#if LESSON_FOR[s.id] && LESSON[LESSON_FOR[s.id]]}<a class="btn sm primary" href={href.lesson(LESSON_FOR[s.id])} onclick={() => (open = null)}><Icon name="graduation" size={14} /> Lesson</a>{/if}
+          <a class="btn sm" href={s.docs} target="_blank" rel="noopener"><Icon name="book-open" size={14} /> AWS docs<span class="sr-only"> (opens in a new tab)</span></a>
+          <a class="btn sm" href={href.play()} onclick={() => (open = null)}><Icon name="blocks" size={14} /> Use on canvas</a>
+        </div>
       </div>
-    </aside>
-  {/if}
+    {/if}
+  </dialog>
 {:else}
   <div class="page"><h1>Unknown provider</h1></div>
 {/if}
@@ -191,11 +201,12 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
       var(--surface);
   }
   .badge {
-    font-size: 0.72rem;
+    margin: 0;
+    font-size: 0.74rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--pc);
+    color: var(--pfg);
   }
   .hero h1 {
     margin: 6px 0 8px;
@@ -277,25 +288,31 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
     margin: 12px 0 14px;
   }
   .cats button {
-    border: 1px solid var(--border);
+    min-height: 30px;
+    border: 1px solid var(--border-strong);
     background: none;
     border-radius: 999px;
-    padding: 4px 11px;
-    font-size: 0.76rem;
+    padding: 4px 12px;
+    font-size: 0.78rem;
     font-weight: 600;
     color: var(--text-2);
   }
-  .cats button.on {
-    background: var(--cc, var(--accent));
-    border-color: transparent;
-    color: white;
+  .cats button[aria-pressed='true'] {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: #ffffff;
   }
   .catalog {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 8px;
   }
   .svc {
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -330,8 +347,8 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
     font-size: 0.9rem;
   }
   .svc small {
-    font-size: 0.72rem;
-    color: var(--text-3);
+    font-size: 0.74rem;
+    color: var(--text-2);
     line-height: 1.3;
   }
   .scns {
@@ -355,8 +372,9 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
     text-decoration: none;
     border-color: var(--accent);
   }
-  .scn :global(svg:last-child) {
-    color: var(--ok);
+  .okc {
+    display: grid;
+    color: var(--ok-fg);
   }
   .map {
     display: grid;
@@ -379,8 +397,8 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
     background: var(--surface-2);
   }
   .mapc .aws {
-    font-size: 0.78rem;
-    color: var(--text-3);
+    font-size: 0.8rem;
+    color: var(--text-2);
   }
   .mapc code {
     align-self: flex-start;
@@ -394,7 +412,7 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
     padding: 18px;
     border-radius: var(--radius-lg);
     border: 1px dashed var(--border-strong);
-    color: var(--pc);
+    color: var(--pfg);
   }
   .roadmap strong {
     color: var(--text);
@@ -402,24 +420,30 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
   .roadmap p {
     margin: 4px 0 0;
   }
-  .drawer-scrim {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 60;
-    animation: fadeIn 0.2s;
-  }
   .drawer {
     position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0 0 0 auto;
     width: min(420px, 100vw);
-    z-index: 61;
-    padding: 28px 24px;
-    overflow-y: auto;
+    height: 100vh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-left: 1px solid var(--border-strong);
+    background: var(--solid);
+    color: var(--text);
     box-shadow: var(--shadow-lg);
+    overflow-y: auto;
+  }
+  .drawer[open] {
     animation: slideIn 0.35s var(--ease);
+  }
+  .drawer::backdrop {
+    background: rgba(0, 0, 0, 0.45);
+  }
+  .dbody {
+    position: relative;
+    padding: 28px 24px;
   }
   @keyframes slideIn {
     from {
@@ -431,9 +455,18 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
     position: absolute;
     top: 12px;
     right: 12px;
+    min-width: 36px;
   }
   .drawer h2 {
     margin: 8px 0 6px;
+  }
+  .links {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
   }
   dl {
     margin: 16px 0;
@@ -450,11 +483,7 @@ TF_VAR_region=eu-west-1 terraform plan`)]]
     margin: 4px 0 0;
     font-size: 0.9rem;
   }
-  dd.links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
+
   .wrap {
     flex-wrap: wrap;
   }

@@ -9,7 +9,7 @@ export const TERRAFORM: Lesson[] = [
     id: 'tf-intro',
     track: 'terraform',
     title: 'Terraform in 10 minutes',
-    summary: 'Providers, resources and the plan/apply loop — how Terraform turns code into cloud.',
+    summary: 'Providers, resources and the plan/apply loop: how Terraform turns code into cloud.',
     icon: 'file-code',
     minutes: 10,
     level: 'Beginner',
@@ -20,7 +20,7 @@ export const TERRAFORM: Lesson[] = [
           text(
             '**Terraform** reads `.tf` files describing the infrastructure you want, compares that with what it has recorded in **state**, and calls cloud APIs to close the gap.',
             '',
-            'It knows nothing about AWS itself — that knowledge lives in **providers**: plugins that map resource types like `aws_s3_bucket` to API calls. There are providers for AWS, Azure, Google Cloud, Kubernetes, GitHub, Datadog, Cloudflare and thousands more.'
+            'It knows nothing about AWS itself. That knowledge lives in **providers**: plugins that map resource types like `aws_s3_bucket` to API calls. There are providers for AWS, Azure, Google Cloud, Kubernetes, GitHub, Datadog, Cloudflare and thousands more.'
           ),
           diagram(
             [
@@ -38,7 +38,7 @@ export const TERRAFORM: Lesson[] = [
             ],
             260
           ),
-          terms(['Provider', 'Plugin that talks to one platform’s API (`hashicorp/aws`).'], ['Resource', 'Something Terraform creates and manages (`resource "aws_vpc" "main"`).'], ['Data source', 'Something Terraform only **reads** (`data "aws_ami" "al2023"`).'], ['State', 'Terraform’s record of what it manages — `terraform.tfstate`.'], ['Plan', 'The computed list of changes needed to reach the desired state.'], ['Module', 'A reusable directory of `.tf` files.'])
+          terms(['Provider', 'Plugin that talks to one platform’s API (`hashicorp/aws`).'], ['Resource', 'Something Terraform creates and manages (`resource "aws_vpc" "main"`).'], ['Data source', 'Something Terraform only **reads** (`data "aws_ami" "al2023"`).'], ['State', 'Terraform’s record of what it manages, `terraform.tfstate`.'], ['Plan', 'The computed list of changes needed to reach the desired state.'], ['Module', 'A reusable directory of `.tf` files.'])
         ]
       },
       {
@@ -67,13 +67,13 @@ resource "aws_s3_bucket" "site" {
     ManagedBy   = "terraform"
   }
 }`, 'main.tf'),
-          text('A resource block has a **type** (`aws_s3_bucket`), a **local name** (`site`) and **arguments**. Together, type and name form its **address**: `aws_s3_bucket.site` — unique within a module.'),
+          text('A resource block has a **type** (`aws_s3_bucket`), a **local name** (`site`) and **arguments**. Together, type and name form its **address**: `aws_s3_bucket.site`, which is unique within a module.'),
           term([
             { cmd: 'terraform init', out: 'Initializing provider plugins...\n- Installing hashicorp/aws v6.x...\nTerraform has been successfully initialized!' },
             { cmd: 'terraform plan', out: '  # aws_s3_bucket.site will be created\n  + resource "aws_s3_bucket" "site" {\n      + bucket = "acme-site-dev-7f3a"\n      + arn    = (known after apply)\n    }\n\nPlan: 1 to add, 0 to change, 0 to destroy.' },
             { cmd: 'terraform apply -auto-approve', out: 'aws_s3_bucket.site: Creating...\naws_s3_bucket.site: Creation complete after 2s [id=acme-site-dev-7f3a]\n\nApply complete! Resources: 1 added, 0 changed, 0 destroyed.' }
           ]),
-          info('`(known after apply)` means the value is computed by AWS during creation — like an ARN or an instance ID.')
+          info('`(known after apply)` means the value is computed by AWS during creation, like an ARN or an instance ID.')
         ]
       },
       {
@@ -100,7 +100,7 @@ resource "aws_s3_bucket" "site" {
     id: 'tf-hcl',
     track: 'terraform',
     title: 'HCL: variables, outputs & expressions',
-    summary: 'Inputs, outputs, locals, types, functions and conditionals — the Terraform language.',
+    summary: 'Inputs, outputs, locals, types, functions and conditionals: the Terraform language.',
     icon: 'code-xml',
     minutes: 14,
     level: 'Beginner',
@@ -189,11 +189,11 @@ by_az       = { for k, s in var.subnets : s.az => s.cidr if !s.public }`)]],
 > cidrsubnet("10.0.0.0/16", 8, 3)
 "10.0.3.0/24"`)]]
           ),
-          mistake('Hard-coding values that differ per environment (instance sizes, CIDRs, domain names). Promote them to variables early — retrofitting later means touching every environment at once.'),
+          mistake('Hard-coding values that differ per environment (instance sizes, CIDRs, domain names). Promote them to variables early. Retrofitting later means touching every environment at once.'),
           quiz('tf-hcl', [
             q('Where do you declare a value computed from other values, used several times in a module?', ['variable', 'locals', 'output', 'data'], 1, 'Locals are named expressions internal to the module.'),
             q('Which has the highest precedence?', ['Default value', 'terraform.tfvars', '-var command-line flag', 'TF_VAR_ env var'], 2, 'Command-line -var / -var-file flags win.'),
-            q('What does `sensitive = true` on a variable do?', ['Encrypts state', 'Redacts the value in CLI output', 'Stores it in Secrets Manager', 'Prevents it from being used'], 1, 'It only hides the value in output — it still appears in state in plain text! Protect state accordingly.'),
+            q('What does `sensitive = true` on a variable do?', ['Encrypts state', 'Redacts the value in CLI output', 'Stores it in Secrets Manager', 'Prevents it from being used'], 1, 'It only hides the value in output. It still appears in state in plain text! Protect state accordingly.'),
             q('What does `cidrsubnet("10.0.0.0/16", 8, 2)` return?', ['10.0.2.0/24', '10.0.0.2/16', '10.2.0.0/24', '10.0.8.0/24'], 0, 'Add 8 bits to /16 → /24, and take the network numbered 2.')
           ]),
           docs(['Input variables', TF + '/language/values/variables'], ['Output values', TF + '/language/values/outputs'], ['Local values', TF + '/language/values/locals'], ['Expressions', TF + '/language/expressions'], ['Built-in functions', TF + '/language/functions'])
@@ -207,7 +207,7 @@ by_az       = { for k, s in var.subnets : s.az => s.cidr if !s.public }`)]],
     id: 'tf-workflow',
     track: 'terraform',
     title: 'The core workflow: init, plan, apply',
-    summary: 'Drive a simulated Terraform — creates, in-place updates, replacements and destroys.',
+    summary: 'Drive a simulated Terraform through creates, in-place updates, replacements and destroys.',
     icon: 'square-terminal',
     minutes: 12,
     level: 'Beginner',
@@ -224,7 +224,7 @@ by_az       = { for k, s in var.subnets : s.az => s.cidr if !s.public }`)]],
         title: 'Reading plans like a pro',
         blocks: [
           accordion(
-            ['Why do some changes force replacement?', [text('Some arguments can’t be changed on a live resource because the underlying API doesn’t allow it — e.g. an S3 bucket’s name or an RDS instance’s `engine`. The provider marks these as **ForceNew**, so Terraform must destroy and recreate.')]],
+            ['Why do some changes force replacement?', [text('Some arguments can’t be changed on a live resource because the underlying API doesn’t allow it, e.g. an S3 bucket’s name or an RDS instance’s `engine`. The provider marks these as **ForceNew**, so Terraform must destroy and recreate.')]],
             ['Protecting critical resources', [code('hcl', `resource "aws_db_instance" "orders" {
   # ...
   lifecycle {
@@ -236,15 +236,15 @@ terraform apply tfplan       # after approval: apply exactly what was reviewed`)
             ['Targeting & refresh-only', [text('`-target=ADDRESS` limits a run to specific resources (for emergencies, not routine use). `terraform plan -refresh-only` shows drift without proposing changes.')]]
           ),
           mistake('Skimming a plan and typing `yes`. Always scan for `-/+` and `-` lines: an innocent-looking rename can replace a database. Search the plan for “must be replaced”.'),
-          example('A pull request changes `instance_type` on a launch template. CI posts the plan as a PR comment: `~ update in-place`. A reviewer spots a second line: `-/+ aws_db_instance.orders (forces replacement)` caused by an accidental `engine_version` downgrade — caught before it hit prod.')
+          example('A pull request changes `instance_type` on a launch template. CI posts the plan as a PR comment: `~ update in-place`. A reviewer spots a second line: `-/+ aws_db_instance.orders (forces replacement)` caused by an accidental `engine_version` downgrade. It was caught before it hit prod.')
         ]
       },
       {
         title: 'Check your understanding',
         blocks: [
           quiz('tf-workflow', [
-            q('What does `terraform plan` change in AWS?', ['Creates resources', 'Nothing — it only proposes changes', 'Deletes drift', 'Uploads state'], 1, 'Plan is read-only (it may refresh state in memory).'),
-            q('A plan line shows `-/+`. What will happen?', ['In-place update', 'Destroy then create a new object', 'Import', 'No-op'], 1, 'Replacement — the old object is destroyed (or created-before-destroyed with `create_before_destroy`).'),
+            q('What does `terraform plan` change in AWS?', ['Creates resources', 'Nothing: it only proposes changes', 'Deletes drift', 'Uploads state'], 1, 'Plan is read-only (it may refresh state in memory).'),
+            q('A plan line shows `-/+`. What will happen?', ['In-place update', 'Destroy then create a new object', 'Import', 'No-op'], 1, 'Replacement: the old object is destroyed (or created-before-destroyed with `create_before_destroy`).'),
             q('You ran `terraform plan` without `init`. What happens?', ['It works', 'It errors: providers/backend not initialised', 'It downloads providers automatically', 'It applies'], 1, '`init` must run first in any new working directory.'),
             q('How do you ensure the apply matches the reviewed plan exactly?', ['Run plan twice', 'Save it with -out and apply that file', 'Use -auto-approve', 'Use -target'], 1, 'Saved plan files are applied verbatim.')
           ]),
@@ -297,12 +297,12 @@ terraform apply tfplan       # after approval: apply exactly what was reviewed`)
     key          = "prod/network/terraform.tfstate"
     region       = "ap-southeast-2"
     encrypt      = true
-    use_lockfile = true # S3-native locking — no DynamoDB table needed
+    use_lockfile = true # S3-native locking, no DynamoDB table needed
   }
 }`, 'backend.tf'),
           tabs(
             ['S3 native locking', [text('Recent Terraform versions (1.11+) lock state with a lock file stored next to it in S3 using conditional writes. This replaces the older **DynamoDB lock table**, which is now deprecated.')]],
-            ['Bucket hygiene', [text('- **Versioning on** — recover from corruption or bad applies', '- **Block Public Access** + encryption (SSE-KMS)', '- Separate state files per environment / component (smaller blast radius)', '- Bootstrap the state bucket itself once, separately')]],
+            ['Bucket hygiene', [text('- **Versioning on**, to recover from corruption or bad applies', '- **Block Public Access** + encryption (SSE-KMS)', '- Separate state files per environment / component (smaller blast radius)', '- Bootstrap the state bucket itself once, separately')]],
             ['Other backends', [text('HCP Terraform, Azure Blob Storage (`azurerm`), Google Cloud Storage (`gcs`), Kubernetes, Consul and more.')]]
           ),
           challenge('tf-backend', 'Design the S3 state bucket your team will share.')
@@ -311,7 +311,7 @@ terraform apply tfplan       # after approval: apply exactly what was reviewed`)
       {
         title: 'Drift, imports & refactoring',
         blocks: [
-          text('**Drift** happens when real infrastructure changes outside Terraform — someone clicks in the console. Play with the scenario below.'),
+          text('**Drift** happens when real infrastructure changes outside Terraform, for example when someone clicks in the console. Play with the scenario below.'),
           widget('tf-drift'),
           accordion(
             ['Import existing resources', [code('hcl', `import {
@@ -339,7 +339,7 @@ terraform state rm aws_instance.old`)]]
           ),
           quiz('tf-state', [
             q('Two engineers run `apply` at the same time against the same S3 state. What prevents corruption?', ['Versioning', 'State locking', 'Encryption', 'Workspaces'], 1, 'Locking ensures only one operation writes state at a time.'),
-            q('Someone resized an instance in the console. What will the next plan propose?', ['Nothing — Terraform ignores it', 'Revert it to match the code', 'Delete the instance', 'Import the change automatically'], 1, 'Terraform refreshes, detects drift, and plans to restore the configured value.'),
+            q('Someone resized an instance in the console. What will the next plan propose?', ['Nothing, because Terraform ignores it', 'Revert it to match the code', 'Delete the instance', 'Import the change automatically'], 1, 'Terraform refreshes, detects drift, and plans to restore the configured value.'),
             q('You renamed `aws_s3_bucket.log` to `aws_s3_bucket.logs`. How do you avoid Terraform destroying the bucket?', ['terraform taint', 'A moved block', 'prevent_destroy', '-refresh-only'], 1, 'moved tells Terraform it’s the same object under a new address.'),
             q('Why must state be protected like a secret?', ['It’s large', 'It can contain plaintext sensitive values', 'It contains your AWS password', 'It’s required by law'], 1, 'Attributes such as generated passwords can end up in state.')
           ]),
@@ -394,7 +394,7 @@ terraform state rm aws_instance.old`)]]
   vpc_id     = aws_vpc.main.id   # ← implicit dependency on the VPC
   cidr_block = "10.0.1.0/24"
 }`)]],
-            ['Explicit: depends_on', [text('Use only when there is a hidden dependency Terraform can’t see from references — e.g. an app needs an IAM policy attached *before* it starts, but never references the policy.'), code('hcl', `resource "aws_instance" "app" {
+            ['Explicit: depends_on', [text('Use only when there is a hidden dependency Terraform can’t see from references. For example, an app needs an IAM policy attached *before* it starts, but never references the policy.'), code('hcl', `resource "aws_instance" "app" {
   # ...
   depends_on = [aws_iam_role_policy.app_s3]
 }`)]]
@@ -405,7 +405,7 @@ terraform state rm aws_instance.old`)]]
       {
         title: 'Data sources: read, don’t manage',
         blocks: [
-          text('A **data source** queries something that exists already — created by another team, another Terraform state, or AWS itself.'),
+          text('A **data source** queries something that exists already, created by another team, another Terraform state, or AWS itself.'),
           code('hcl', `data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
@@ -427,7 +427,7 @@ resource "aws_instance" "bastion" {
   instance_type = "t4g.micro"
   subnet_id     = one(data.aws_subnets.shared_public.ids)
 }`, 'data.tf'),
-          tip('To share values between separate Terraform stacks, prefer data sources that look things up by tag, or SSM Parameter Store, over `terraform_remote_state` — it avoids giving one stack read access to another’s entire state.'),
+          tip('To share values between separate Terraform stacks, prefer data sources that look things up by tag, or SSM Parameter Store, over `terraform_remote_state`. It avoids giving one stack read access to another’s entire state.'),
           quiz('tf-deps', [
             q('How does Terraform know to create a VPC before its subnet?', ['Alphabetical order', 'File order', 'The subnet references aws_vpc.main.id', 'You must use depends_on'], 2, 'References create implicit dependencies.'),
             q('When should you use depends_on?', ['Always', 'For hidden dependencies not expressed through references', 'Never', 'Only for modules'], 1, 'It’s an escape hatch for dependencies Terraform can’t infer.'),
@@ -444,7 +444,7 @@ resource "aws_instance" "bastion" {
     id: 'tf-meta',
     track: 'terraform',
     title: 'count, for_each & lifecycle',
-    summary: 'Create many resources from one block — and avoid the index-shift trap.',
+    summary: 'Create many resources from one block, and avoid the index-shift trap.',
     icon: 'layers',
     minutes: 12,
     level: 'Intermediate',
@@ -501,15 +501,15 @@ resource "aws_subnet" "private" {
     }
   }
 }`)]],
-            ['create_before_destroy', [text('For replacements, build the new object first, then destroy the old — zero-downtime swaps for launch templates, certificates and the like.')]],
+            ['create_before_destroy', [text('For replacements, build the new object first, then destroy the old: zero-downtime swaps for launch templates, certificates and the like.')]],
             ['prevent_destroy', [text('Refuse any plan that destroys this resource. Guard rail for databases and state buckets.')]],
-            ['ignore_changes', [text('Ignore drift on specific attributes managed elsewhere — e.g. `desired_count` changed by autoscaling.'), code('hcl', `resource "aws_ecs_service" "api" {
+            ['ignore_changes', [text('Ignore drift on specific attributes managed elsewhere, e.g. `desired_count` changed by autoscaling.'), code('hcl', `resource "aws_ecs_service" "api" {
   # ...
   lifecycle {
     ignore_changes = [desired_count]
   }
 }`)]],
-            ['replace_triggered_by', [text('Force replacement when another resource changes — e.g. recreate instances when their launch template changes.')]]
+            ['replace_triggered_by', [text('Force replacement when another resource changes, e.g. recreate instances when their launch template changes.')]]
           ),
           quiz('tf-meta', [
             q('You remove the middle element of a list used with `count`. What happens?', ['Only that resource is destroyed', 'Later resources shift index and get replaced/updated', 'Nothing', 'Terraform errors'], 1, 'Index-based addressing shifts everything after the removed item.'),
@@ -582,7 +582,7 @@ output "orders_url" {
 
   enable_nat_gateway = true
   single_nat_gateway = false # one per AZ for HA
-}`, 'vpc.tf', 'Dozens of resources — subnets, route tables, NATs, EIPs — from one block.'),
+}`, 'vpc.tf', 'Dozens of resources (subnets, route tables, NATs, EIPs) from one block.'),
           tip('Always **pin module versions**. An unpinned registry module can change underneath you on the next `init -upgrade`.'),
           cards(
             { title: 'Good module', icon: 'check', color: '#34d399', md: 'Does one job, has sensible defaults, validated inputs, useful outputs and a README with examples.' },
@@ -595,7 +595,7 @@ output "orders_url" {
         blocks: [
           table(
             ['', 'CLI workspaces', 'Directory per environment'],
-            ['How', '`terraform workspace new prod` — same code, separate state', '`envs/dev`, `envs/prod` each with own backend & tfvars'],
+            ['How', '`terraform workspace new prod`: same code, separate state', '`envs/dev`, `envs/prod` each with own backend & tfvars'],
             ['Differences between envs', 'Only via variables / `terraform.workspace`', 'Can differ structurally'],
             ['Isolation', 'Same backend & credentials', 'Separate backends, often separate AWS accounts'],
             ['Best for', 'Short-lived copies (feature envs)', 'Long-lived dev/staging/prod']
@@ -643,7 +643,7 @@ output "orders_url" {
   }
 }
 
-# A second, aliased provider — e.g. ACM certs for CloudFront must be in us-east-1
+# A second, aliased provider, e.g. ACM certs for CloudFront must be in us-east-1
 provider "aws" {
   alias  = "use1"
   region = "us-east-1"
@@ -654,14 +654,14 @@ resource "aws_acm_certificate" "site" {
   domain_name       = "www.acme.com"
   validation_method = "DNS"
 }`, 'providers.tf'),
-          tip('`default_tags` tags every taggable resource the provider creates — the easiest win for cost allocation and ownership.')
+          tip('`default_tags` tags every taggable resource the provider creates: the easiest win for cost allocation and ownership.')
         ]
       },
       {
         title: 'Secrets without leaking them',
         blocks: [
           accordion(
-            ['Let AWS generate & store it', [text('Prefer options where the secret never passes through Terraform, e.g. RDS `manage_master_user_password = true` — the password is created and rotated in Secrets Manager.')]],
+            ['Let AWS generate & store it', [text('Prefer options where the secret never passes through Terraform, e.g. RDS `manage_master_user_password = true`, where the password is created and rotated in Secrets Manager.')]],
             ['Reference, don’t embed', [text('Pass secret **ARNs** to ECS/Lambda and let them fetch values at runtime. Terraform only ever sees the ARN.')]],
             ['Ephemeral values & write-only arguments', [text('Newer Terraform versions add **ephemeral resources** and **write-only arguments** so a secret can be fetched and passed to a provider without ever being stored in plan or state files.')]],
             ['Scanning', [text('Run **tflint**, **checkov** or **trivy** in CI to catch hard-coded secrets and insecure settings (public buckets, open security groups) before merge.')]]
@@ -714,10 +714,10 @@ jobs:
       - run: terraform init -input=false
       - run: terraform fmt -check && terraform validate
       - run: terraform plan -input=false -out=tfplan`, '.github/workflows/terraform.yml')]],
-            ['3 · Apply on merge', [text('On push to `main`, re-run plan and `terraform apply tfplan` — ideally gated by a GitHub **environment** with required reviewers for production.')]],
+            ['3 · Apply on merge', [text('On push to `main`, re-run plan and `terraform apply tfplan`, ideally gated by a GitHub **environment** with required reviewers for production.')]],
             ['4 · Guard rails', [text('- Separate roles: read-only for plan, write for apply', '- Policy as code (OPA/Conftest, Sentinel) to block risky changes', '- Drift detection: a scheduled `plan -detailed-exitcode` that alerts on changes')]]
           ),
-          example('A platform team manages 40 AWS accounts. Each workload has its own root module and state file; GitHub Actions assumes a per-account deploy role via OIDC. No human has standing admin access to production — changes flow only through reviewed PRs.'),
+          example('A platform team manages 40 AWS accounts. Each workload has its own root module and state file; GitHub Actions assumes a per-account deploy role via OIDC. No human has standing admin access to production. Changes flow only through reviewed PRs.'),
           quiz('tf-aws', [
             q('How should CI authenticate to AWS for Terraform?', ['Long-lived access keys in repo secrets', 'OIDC federation to an IAM role', 'The root user', 'Hard-coded in the provider block'], 1, 'OIDC gives short-lived credentials with no stored secrets.'),
             q('You need an ACM certificate for CloudFront while your stack runs in ap-southeast-2. How?', ['Impossible', 'An aliased provider for us-east-1', 'Create it in ap-southeast-2', 'Use a data source'], 1, 'Use `provider = aws.use1` on that resource.'),

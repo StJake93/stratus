@@ -4,7 +4,9 @@
   import { board } from './board.svelte';
   import { progress } from '../stores/progress.svelte';
   import { href } from '../stores/router.svelte';
-  import { md } from '../md';
+  import { md, plain } from '../md';
+  import { settings } from '../stores/settings.svelte';
+  import { announce } from '../stores/announce.svelte';
   import type { Scenario } from '../data/scenarios';
   import { SCENARIOS } from '../data/scenarios';
 
@@ -29,8 +31,18 @@
       celebrated = true;
       const used = hints.length;
       untrack(() => progress.completeScenario(scenario.id, scenario.title, used));
-      burst();
+      announce(`Scenario complete: ${scenario.title}.`);
+      if (!settings.reduced) burst();
     }
+  });
+
+  // Announce goals as they are met, so screen reader users hear progress while building.
+  let prev: boolean[] = [];
+  $effect(() => {
+    const now = status;
+    const newly = now.map((d, i) => (d && prev.length && !prev[i] ? i : -1)).filter((i) => i >= 0);
+    if (newly.length && !complete) announce(`Goal complete: ${plain(scenario.steps[newly[0]].goal)}`);
+    prev = now;
   });
 
   let confetti = $state<{ id: number; x: number; c: string; d: number; r: number }[]>([]);
@@ -44,8 +56,8 @@
 <div class="scn">
   <div class="head">
     <span class="chip">{scenario.difficulty}</span>
-    <h3>{scenario.title}</h3>
-    <div class="prog"><span style:width="{pct * 100}%"></span></div>
+    <h2>{scenario.title}</h2>
+    <div class="prog" role="progressbar" aria-label="Scenario progress" aria-valuemin={0} aria-valuemax={scenario.steps.length} aria-valuenow={status.filter(Boolean).length}><span style:width="{pct * 100}%"></span></div>
   </div>
   <div class="story">{@html md(scenario.story)}</div>
 
@@ -53,15 +65,17 @@
     {#each scenario.steps as s, i}
       {@const done = status[i]}
       {@const active = i === firstOpen}
-      <li class:done class:active class:locked={!done && i > firstOpen}>
-        <span class="n">{#if done}<Icon name="check" size={13} stroke={3} />{:else}{i + 1}{/if}</span>
+      <li class:done class:active class:locked={!done && i > firstOpen} aria-current={active && !done ? 'step' : undefined}>
+        <span class="n" aria-hidden="true">{#if done}<Icon name="check" size={13} stroke={3} />{:else}{i + 1}{/if}</span>
         <div class="t">
+          <span class="sr-only">Goal {i + 1}, {done ? 'done' : active ? 'current' : 'not started'}: </span>
           <div>{@html md(s.goal)}</div>
           {#if active && !done}
+            <button class="btn sm ghost hbtn" aria-expanded={hints.includes(i)} aria-controls="hint-{i}" onclick={() => !hints.includes(i) && (hints = [...hints, i])}
+              ><Icon name="lightbulb" size={13} /> {hints.includes(i) ? 'Hint' : 'Show hint'}</button
+            >
             {#if hints.includes(i)}
-              <p class="hint fade-in"><Icon name="lightbulb" size={13} /> {@html md(s.hint)}</p>
-            {:else}
-              <button class="btn sm ghost hbtn" onclick={() => (hints = [...hints, i])}><Icon name="lightbulb" size={13} /> Show hint</button>
+              <p class="hint fade-in" id="hint-{i}" aria-live="polite">{@html md(s.hint)}</p>
             {/if}
           {/if}
         </div>
@@ -69,7 +83,8 @@
     {/each}
     {#if scenario.noErrors}
       <li class:done={complete} class:active={allSteps && !complete}>
-        <span class="n">{#if complete}<Icon name="check" size={13} stroke={3} />{:else}<Icon name="shield-check" size={13} />{/if}</span>
+        <span class="n" aria-hidden="true">{#if complete}<Icon name="check" size={13} stroke={3} />{:else}<Icon name="shield-check" size={13} />{/if}</span>
+        <span class="sr-only">Final goal, {complete ? 'done' : 'not done'}: </span>
         <div class="t">
           <div>Resolve all <strong>errors</strong> in the Issues tab {#if allSteps && errors}<span class="err">({errors} left)</span>{/if}</div>
         </div>
@@ -104,8 +119,9 @@
   .scn {
     padding: 14px;
   }
-  .head h3 {
+  .head h2 {
     margin: 8px 0 8px;
+    font-size: 1.12rem;
   }
   .prog {
     height: 6px;
@@ -141,7 +157,7 @@
     transition: all 0.3s var(--ease);
   }
   .steps li.active {
-    border-color: var(--accent);
+    border: 2px solid var(--accent-strong);
     background: var(--accent-soft);
   }
   .steps li.done {
@@ -149,7 +165,8 @@
     background: var(--ok-soft);
   }
   .steps li.locked {
-    opacity: 0.55;
+    color: var(--text-2);
+    border-style: dashed;
   }
   .n {
     width: 22px;
@@ -167,8 +184,8 @@
     color: #06281c;
   }
   .active .n {
-    background: var(--accent);
-    color: white;
+    background: var(--accent-strong);
+    color: #ffffff;
   }
   .t {
     flex: 1;
@@ -177,27 +194,23 @@
     margin: 0;
   }
   .hint {
-    display: flex;
-    gap: 6px;
     margin-top: 6px !important;
     padding: 7px 9px;
     border-radius: 8px;
     background: var(--warn-soft);
     color: var(--text);
-    font-size: 0.8rem;
-  }
-  .hint :global(svg) {
-    flex: none;
-    color: var(--warn);
-    margin-top: 3px;
+    font-size: 0.82rem;
   }
   .hbtn {
     margin-top: 4px;
     padding: 3px 8px;
-    color: var(--warn);
+    color: var(--warn-fg);
+  }
+  .hbtn[aria-expanded='true'] {
+    cursor: default;
   }
   .err {
-    color: var(--err);
+    color: var(--err-fg);
     font-weight: 700;
   }
   .done-card {
@@ -209,8 +222,8 @@
     background:
       radial-gradient(120% 120% at 0 0, rgba(52, 211, 153, 0.2), transparent 60%),
       var(--surface-2);
-    border: 1px solid rgba(52, 211, 153, 0.4);
-    color: var(--ok);
+    border: 1px solid rgba(52, 211, 153, 0.5);
+    color: var(--ok-fg);
   }
   .done-card strong {
     color: var(--text);

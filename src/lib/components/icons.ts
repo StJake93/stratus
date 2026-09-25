@@ -1,4 +1,4 @@
-// Generated icon registry — per-icon imports keep the bundle small.
+// Generated icon registry. Per-icon imports keep the bundle small.
 import type { Component } from 'svelte';
 import ILambda from '@lucide/svelte/icons/lambda';
 import IShipWheel from '@lucide/svelte/icons/ship-wheel';
@@ -84,6 +84,7 @@ import IMaximize2 from '@lucide/svelte/icons/maximize-2';
 import IMinimize2 from '@lucide/svelte/icons/minimize-2';
 import ILocateFixed from '@lucide/svelte/icons/locate-fixed';
 import IMousePointer2 from '@lucide/svelte/icons/mouse-pointer-2';
+import IMoveHorizontal from '@lucide/svelte/icons/move-horizontal';
 import IHand from '@lucide/svelte/icons/hand';
 import IWandSparkles from '@lucide/svelte/icons/wand-sparkles';
 import IRoute from '@lucide/svelte/icons/route';
@@ -209,6 +210,7 @@ export const ICONS: Record<string, Component<any>> = {
   'minimize-2': IMinimize2,
   'locate-fixed': ILocateFixed,
   'mouse-pointer-2': IMousePointer2,
+  'move-horizontal': IMoveHorizontal,
   'hand': IHand,
   'wand-sparkles': IWandSparkles,
   'route': IRoute,

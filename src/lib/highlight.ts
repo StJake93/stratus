@@ -1,4 +1,4 @@
-// Lightweight regex highlighter — enough for HCL, JSON, YAML, bash, Dockerfile, Python and JS snippets.
+// Lightweight regex highlighter, enough for HCL, JSON, YAML, bash, Dockerfile, Python and JS snippets.
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 

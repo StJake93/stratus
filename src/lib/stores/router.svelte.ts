@@ -1,4 +1,4 @@
-// Minimal hash router — works on static hosts (GitHub Pages) with no server config.
+// Minimal hash router. Works on static hosts (GitHub Pages) with no server config.
 
 export type Route =
   | { name: 'home' }

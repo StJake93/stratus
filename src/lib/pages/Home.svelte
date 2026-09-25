@@ -18,7 +18,22 @@
     const l = LESSON[id];
     return l ? (progress.d.steps[id]?.length ?? 0) / l.steps.length : 0;
   };
+  const status = (id: string) => {
+    const l = LESSON[id];
+    const steps = progress.d.steps[id]?.length ?? 0;
+    if (progress.lessonDone(id)) return 'completed';
+    if (next.id === id) return steps ? `next up, ${steps} of ${l.steps.length} steps done` : 'next up';
+    return steps ? `${steps} of ${l.steps.length} steps done` : 'not started';
+  };
+
+  // Tooltips are hoverable and dismissible with Escape (WCAG 1.4.13).
+  let tipsHidden = $state(false);
+  function onKey(e: KeyboardEvent) {
+    if (e.key === 'Escape') tipsHidden = true;
+  }
 </script>
+
+<svelte:window onkeydown={onKey} />
 
 <div class="page">
   <section class="hero fade-in">
@@ -43,7 +58,7 @@
     <header class="sh">
       <div>
         <h2>Your learning path</h2>
-        <p class="muted">Every lesson in order. Filled nodes are complete — click one to jump in.</p>
+        <p class="muted">Every lesson in order. Filled nodes are complete, and you can select any node to jump in.</p>
       </div>
     </header>
     <div class="lanes">
@@ -55,24 +70,36 @@
             <strong>{t.title}</strong>
             <small>{done}/{ids.length} complete</small>
           </a>
-          <div class="nodes">
+          <ol class="nodes" class:tips-off={tipsHidden} aria-label="{t.title} lessons" onmouseover={() => (tipsHidden = false)} onfocusin={() => (tipsHidden = false)}>
             {#each ids as id, i (id)}
               {@const l = LESSON[id]}
               {@const d = progress.lessonDone(id)}
               {@const p = stepPct(id)}
-              {#if i > 0}<span class="link" class:lit={progress.lessonDone(ids[i - 1])}></span>{/if}
-              <a class="node" class:done={d} class:current={next.id === id} href={href.lesson(id)} style:--p={p} aria-label={l.title}>
-                <span class="dot"><Icon name={d ? 'check' : l.icon} size={16} stroke={d ? 3 : 2} /></span>
-                <span class="tip">{l.title}<small>{l.minutes} min · {l.level}</small></span>
-              </a>
+              <li class="step" class:first={i === 0}>
+                {#if i > 0}<span class="link" class:lit={progress.lessonDone(ids[i - 1])} aria-hidden="true"></span>{/if}
+                <a
+                  class="node"
+                  class:done={d}
+                  class:current={next.id === id}
+                  class:edge-l={i < 2}
+                  class:edge-r={i > ids.length - 3 && i >= 2}
+                  href={href.lesson(id)}
+                  style:--p={p}
+                  aria-label="{l.title}, {status(id)}"
+                >
+                  <span class="dot" aria-hidden="true"><Icon name={d ? 'check' : l.icon} size={16} stroke={d ? 3 : 2} /></span>
+                  <span class="tip" aria-hidden="true">{l.title}<small>{l.minutes} min · {l.level} · {status(id)}</small></span>
+                </a>
+              </li>
             {/each}
-          </div>
+          </ol>
         </div>
       {/each}
     </div>
   </section>
 
-  <section class="grid tiles">
+  <h2 class="sr-only">Explore</h2>
+  <section class="grid tiles" aria-label="Explore">
     <a class="tile aws" href={href.provider('aws')}>
       <span class="ti"><Icon name="cloud" size={22} /></span>
       <h3>AWS</h3>
@@ -82,13 +109,13 @@
     <a class="tile tf" href={href.provider('terraform')}>
       <span class="ti"><Icon name="file-code" size={22} /></span>
       <h3>Terraform</h3>
-      <p>HCL, plan/apply, state, modules and for_each — with interactive simulators.</p>
+      <p>HCL, plan and apply, state, modules and for_each, all with interactive simulators.</p>
       <span class="go">Explore <Icon name="arrow-right" size={14} /></span>
     </a>
     <a class="tile scn" href={href.play(nextScenario.id)}>
       <span class="ti"><Icon name={nextScenario.icon} size={22} /></span>
       <h3>Next scenario</h3>
-      <p><strong>{nextScenario.title}</strong> — {nextScenario.summary}</p>
+      <p><strong>{nextScenario.title}:</strong> {nextScenario.summary}</p>
       <span class="go">Start building <Icon name="arrow-right" size={14} /></span>
     </a>
     <a class="tile cmp" href={href.compare()}>
@@ -137,7 +164,7 @@
     border-radius: var(--radius);
     background: var(--surface);
     border: 1px solid var(--border);
-    color: var(--accent-2);
+    color: var(--accent-2-fg);
   }
   .stat b {
     display: block;
@@ -148,7 +175,7 @@
   }
   .stat small {
     font-size: 0.9rem;
-    color: var(--text-3);
+    color: var(--text-2);
     font-weight: 500;
   }
   .stat span {
@@ -200,12 +227,25 @@
     font-size: 0.74rem;
     color: var(--text-3);
   }
+  /* No scroll container here: lanes wrap instead, so tooltips, the pulse ring and hover scale are never clipped. */
   .nodes {
+    list-style: none;
+    margin: 0;
+    padding: 6px 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 14px;
+  }
+  .step {
     display: flex;
     align-items: center;
-    overflow-x: auto;
-    padding: 6px 4px;
-    scrollbar-width: none;
+    flex: 1 1 auto;
+    max-width: 102px;
+  }
+  .step.first {
+    flex: 0 0 auto;
+    max-width: none;
   }
   .link {
     flex: 1;
@@ -213,7 +253,7 @@
     max-width: 60px;
     height: 3px;
     border-radius: 3px;
-    background: var(--surface-3);
+    background: var(--track);
   }
   .link.lit {
     background: var(--tc);
@@ -221,6 +261,10 @@
   .node {
     position: relative;
     flex: none;
+    border-radius: 50%;
+  }
+  .node:focus-visible {
+    outline-offset: 4px;
   }
   .dot {
     width: 42px;
@@ -233,7 +277,7 @@
       conic-gradient(var(--tc) calc(var(--p) * 360deg), transparent 0) border-box,
       var(--solid);
     border: 3px solid transparent;
-    box-shadow: inset 0 0 0 1px var(--border-strong);
+    box-shadow: inset 0 0 0 1px var(--border-input);
     transition:
       transform 0.25s var(--ease),
       box-shadow 0.25s;
@@ -261,37 +305,71 @@
   }
   .tip {
     position: absolute;
-    bottom: calc(100% + 8px);
+    bottom: calc(100% + 10px);
     left: 50%;
     transform: translate(-50%, 4px);
     opacity: 0;
-    pointer-events: none;
+    visibility: hidden;
     white-space: nowrap;
     padding: 6px 10px;
     border-radius: 9px;
-    background: var(--solid-2);
+    background: var(--solid);
     border: 1px solid var(--border-strong);
     color: var(--text);
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-weight: 600;
-    box-shadow: var(--shadow);
-    transition: all 0.2s var(--ease);
-    z-index: 5;
+    box-shadow: var(--shadow-lg);
+    transition:
+      opacity 0.2s var(--ease),
+      transform 0.2s var(--ease),
+      visibility 0.2s;
+    z-index: 20;
+  }
+  /* Invisible bridge so the pointer can move from the node onto the tooltip without it closing. */
+  .tip::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    height: 12px;
   }
   .tip small {
     display: block;
     font-weight: 400;
-    color: var(--text-3);
-    font-size: 0.7rem;
+    color: var(--text-2);
+    font-size: 0.74rem;
+  }
+  /* Keep tooltips inside the card at either end of a lane. */
+  .edge-l .tip {
+    left: -4px;
+    transform: translate(0, 4px);
+  }
+  .edge-r .tip {
+    left: auto;
+    right: -4px;
+    transform: translate(0, 4px);
   }
   .node:hover .tip,
   .node:focus-visible .tip {
     opacity: 1;
+    visibility: visible;
     transform: translate(-50%, 0);
   }
-  .nodes {
-    padding-top: 50px;
-    margin-top: -44px;
+  .edge-l:hover .tip,
+  .edge-l:focus-visible .tip,
+  .edge-r:hover .tip,
+  .edge-r:focus-visible .tip {
+    transform: none;
+  }
+  .tips-off .tip {
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+  @media (hover: none) {
+    .tip {
+      display: none;
+    }
   }
   .tiles {
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -316,17 +394,24 @@
     border-color: color-mix(in srgb, var(--tc) 50%, transparent);
     box-shadow: 0 20px 40px -24px var(--tc);
   }
+  .tile {
+    --tfg: var(--accent-fg);
+  }
   .tile.aws {
     --tc: var(--aws);
+    --tfg: var(--aws-fg);
   }
   .tile.tf {
     --tc: var(--tf);
+    --tfg: var(--tf-fg);
   }
   .tile.scn {
     --tc: var(--accent-2);
+    --tfg: var(--accent-2-fg);
   }
   .tile.cmp {
     --tc: var(--ok);
+    --tfg: var(--ok-fg);
   }
   .ti {
     width: 44px;
@@ -335,7 +420,7 @@
     place-items: center;
     border-radius: 12px;
     background: color-mix(in srgb, var(--tc) 18%, transparent);
-    color: var(--tc);
+    color: var(--tfg);
     margin-bottom: 14px;
   }
   .tile h3 {
@@ -350,9 +435,9 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.84rem;
+    font-size: 0.86rem;
     font-weight: 700;
-    color: var(--tc);
+    color: var(--tfg);
   }
   @media (max-width: 900px) {
     .page {

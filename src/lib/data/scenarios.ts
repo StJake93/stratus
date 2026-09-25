@@ -44,7 +44,7 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 'Beginner',
     icon: 'globe',
     summary: 'Host a React/HTML site globally with S3, CloudFront and Route 53.',
-    story: 'Your marketing team has a static site build (HTML/CSS/JS). They want it fast worldwide, on **HTTPS**, at `www.acme.com` — and security insists the bucket stays **private**.',
+    story: 'Your marketing team has a static site build (HTML/CSS/JS). They want it fast worldwide, on **HTTPS**, at `www.acme.com`, and security insists the bucket stays **private**.',
     lesson: 'aws-s3',
     steps: [
       { goal: 'Add an **S3 bucket** to hold the site files', hint: 'Find S3 under Storage in the palette and drag it onto the canvas.', check: (g) => g.has('s3') },
@@ -61,7 +61,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Build a serverless REST API',
     difficulty: 'Beginner',
     icon: 'lambda',
-    summary: 'API Gateway + Lambda + DynamoDB — the “hello world” of serverless.',
+    summary: 'API Gateway + Lambda + DynamoDB: the “hello world” of serverless.',
     story: 'You are building a to-do API for a mobile app. Traffic is spiky and unpredictable, and the team never wants to patch a server. Build a fully serverless backend.',
     lesson: 'aws-apigw',
     steps: [
@@ -84,7 +84,7 @@ export const SCENARIOS: Scenario[] = [
     story: 'Before any app can launch, the platform team needs a standard network: two Availability Zones, public subnets for load balancers, private subnets for apps and data, and outbound internet for patching.',
     lesson: 'aws-vpc',
     steps: [
-      { goal: 'Create a **VPC**', hint: 'Drag a VPC onto the canvas — it’s a resizable container.', check: (g) => g.has('vpc') },
+      { goal: 'Create a **VPC**', hint: 'Drag a VPC onto the canvas. It’s a resizable container.', check: (g) => g.has('vpc') },
       { goal: 'Add **two public subnets** in different AZs', hint: 'Drop two subnets inside the VPC. In the inspector, toggle “Public subnet” and set AZ a and b.', check: (g) => g.of('vpc').some((v) => g.azsIn(v, true).size >= 2) },
       { goal: 'Add **two private subnets** in different AZs', hint: 'Two more subnets, public off, AZs a and b. Use distinct CIDRs!', check: vpcWith2AzPubPriv },
       { goal: 'Attach an **Internet Gateway** to the VPC', hint: 'The IGW goes inside the VPC but outside any subnet.', check: (g) => g.of('igw').some((i) => g.parent(i)?.svc === 'vpc') },
@@ -99,7 +99,7 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 'Intermediate',
     icon: 'layers',
     summary: 'Load balancer, auto-scaled EC2 app tier and a Multi-AZ RDS database.',
-    story: 'A legacy Java app is moving to AWS (“lift and shift”). It needs to survive an AZ outage. The network is already built for you — wire up the tiers.',
+    story: 'A legacy Java app is moving to AWS (“lift and shift”). It needs to survive an AZ outage. The network is already built for you, so wire up the tiers.',
     lesson: 'aws-ec2',
     starter: {
       nodes: [
@@ -124,7 +124,7 @@ export const SCENARIOS: Scenario[] = [
       { goal: 'Run at least **2 EC2 instances**', hint: 'Inspector → Instances (Auto Scaling desired) ≥ 2.', check: (g) => g.of('ec2').some((e) => Number(e.config.count) >= 2) }
     ],
     noErrors: true,
-    debrief: 'Each tier is isolated by subnet and security group: only the ALB is public, only the app can reach the DB. Losing an AZ loses half the instances — the ASG replaces them — and RDS fails over to its standby in ~60–120 seconds.'
+    debrief: 'Each tier is isolated by subnet and security group: only the ALB is public, only the app can reach the DB. Losing an AZ loses half the instances (the ASG replaces them), and RDS fails over to its standby in ~60–120 seconds.'
   },
   {
     id: 'event-pipeline',
@@ -168,8 +168,8 @@ export const SCENARIOS: Scenario[] = [
     title: 'Order fan-out with SNS + SQS',
     difficulty: 'Intermediate',
     icon: 'git-branch',
-    summary: 'One event, many independent consumers — the pub/sub fan-out pattern.',
-    story: 'When an order is placed, billing, shipping and analytics all need to know — independently, so a slow analytics job never delays shipping.',
+    summary: 'One event, many independent consumers: the pub/sub fan-out pattern.',
+    story: 'When an order is placed, billing, shipping and analytics all need to know independently, so a slow analytics job never delays shipping.',
     lesson: 'aws-messaging',
     steps: [
       { goal: 'Orders arrive via **API Gateway → Lambda**', hint: 'Users → API Gateway → Lambda.', check: (g) => g.chain('apigw', 'lambda') },
@@ -178,7 +178,7 @@ export const SCENARIOS: Scenario[] = [
       { goal: 'Each queue has its own **consumer Lambda**', hint: 'SQS → Lambda for each queue.', check: (g) => g.of('sqs').filter((q) => g.out(q.id).some((t) => t.svc === 'lambda')).length >= 2 }
     ],
     noErrors: true,
-    debrief: 'SNS fans out; each SQS queue gives its consumer an independent buffer, retry policy and DLQ. Adding a new consumer later is just another subscription — no change to the publisher.'
+    debrief: 'SNS fans out; each SQS queue gives its consumer an independent buffer, retry policy and DLQ. Adding a new consumer later is just another subscription, with no change to the publisher.'
   },
   {
     id: 'container-app',
@@ -200,7 +200,7 @@ export const SCENARIOS: Scenario[] = [
       edges: []
     },
     steps: [
-      { goal: 'Create an **ECR** repository', hint: 'ECR is a regional service — keep it outside the VPC.', check: (g) => g.has('ecr') },
+      { goal: 'Create an **ECR** repository', hint: 'ECR is a regional service, so keep it outside the VPC.', check: (g) => g.has('ecr') },
       { goal: 'A **Developer / CI** pipeline pushes images to it', hint: 'Developer → ECR (docker push).', check: (g) => g.chain('developer', 'ecr') },
       { goal: 'Run an **ECS Fargate** service in a private subnet', hint: 'Drop ECS Fargate into private-a.', check: (g) => inPrivate(g, 'ecs') },
       { goal: 'ECS pulls its image from ECR', hint: 'ECR → ECS.', check: (g) => g.chain('ecr', 'ecs') },
@@ -245,7 +245,7 @@ export const SCENARIOS: Scenario[] = [
       { goal: 'Access through a least-privilege **IAM role**', hint: 'Add an IAM Role. In real life CI assumes it via OIDC.', check: (g) => g.has('iam') }
     ],
     noErrors: false,
-    debrief: 'Since Terraform 1.11 the S3 backend can lock state natively with `use_lockfile = true` — no DynamoDB table needed (the old DynamoDB lock table is deprecated). Look at `providers.tf` in the Terraform tab for the backend block.'
+    debrief: 'Since Terraform 1.11 the S3 backend can lock state natively with `use_lockfile = true`, so no DynamoDB table is needed (the old DynamoDB lock table is deprecated). Look at `providers.tf` in the Terraform tab for the backend block.'
   },
   {
     id: 'secure-api',

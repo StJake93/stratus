@@ -11,12 +11,17 @@
   import Diagram from './ui/Diagram.svelte';
   import Widget from './widgets/Widget.svelte';
   import type { Block } from '../data/types';
-  import { md } from '../md';
+  import { md, mdInline, plain } from '../md';
   import { href } from '../stores/router.svelte';
   import { SCENARIO } from '../data/scenarios';
   import { progress } from '../stores/progress.svelte';
+  import { headingLevel, provideHeadingLevel, tag } from '../heading';
+  import { scrollable } from '../actions';
 
-  let { blocks }: { blocks: Block[] } = $props();
+  let { blocks, level = headingLevel() }: { blocks: Block[]; level?: number } = $props();
+  // Children (widgets, quizzes, accordions...) read this to pick the right heading level.
+  // svelte-ignore state_referenced_locally
+  provideHeadingLevel(level);
 </script>
 
 {#each blocks as b, bi (bi)}
@@ -26,15 +31,15 @@
     <Callout variant={b.variant} title={b.title} body={b.md} />
   {:else if b.type === 'tabs'}
     <Tabs labels={b.tabs.map((t) => t.label)}>
-      {#snippet panel(i)}<Blocks blocks={b.tabs[i].blocks} />{/snippet}
+      {#snippet panel(i)}<Blocks blocks={b.tabs[i].blocks} {level} />{/snippet}
     </Tabs>
   {:else if b.type === 'accordion'}
     <Accordion titles={b.items.map((t) => t.title)}>
-      {#snippet body(i)}<Blocks blocks={b.items[i].blocks} />{/snippet}
+      {#snippet body(i)}<Blocks blocks={b.items[i].blocks} level={level + 1} />{/snippet}
     </Accordion>
   {:else if b.type === 'carousel'}
-    <Carousel titles={b.slides.map((s) => s.title)}>
-      {#snippet slide(i)}<Blocks blocks={b.slides[i].blocks} />{/snippet}
+    <Carousel titles={b.slides.map((s) => s.title)} label="{b.slides.length}-step walkthrough">
+      {#snippet slide(i)}<Blocks blocks={b.slides[i].blocks} level={level + 1} />{/snippet}
     </Carousel>
   {:else if b.type === 'code'}
     <CodeBlock code={b.code} lang={b.lang} file={b.file} caption={b.caption} />
@@ -47,26 +52,30 @@
   {:else if b.type === 'terminal'}
     <Terminal title={b.title} lines={b.lines} />
   {:else if b.type === 'compare'}
-    <div class="tbl-wrap">
+    <div class="tbl-wrap" use:scrollable role="region" aria-label="Comparison: {b.columns.filter(Boolean).join(', ')}">
       <table class="tbl">
-        <thead><tr>{#each b.columns as c}<th>{c}</th>{/each}</tr></thead>
+        <thead><tr>{#each b.columns as c}<th scope="col">{#if c}{c}{:else}<span class="sr-only">Item</span>{/if}</th>{/each}</tr></thead>
         <tbody>
           {#each b.rows as r}
-            <tr>{#each r as cell, ci}<td class:first={ci === 0}>{@html md(cell)}</td>{/each}</tr>
+            <tr>
+              {#each r as cell, ci}
+                {#if ci === 0}<th scope="row">{@html md(cell)}</th>{:else}<td>{@html md(cell)}</td>{/if}
+              {/each}
+            </tr>
           {/each}
         </tbody>
       </table>
     </div>
   {:else if b.type === 'cards'}
-    <div class="cards">
+    <ul class="cards">
       {#each b.items as c}
-        <div class="c" style:--cc={c.color ?? 'var(--accent)'}>
-          {#if c.icon}<span class="ci"><Icon name={c.icon} size={20} /></span>{/if}
-          <h4>{c.title}</h4>
+        <li class="c" style:--cc={c.color ?? 'var(--accent)'}>
+          {#if c.icon}<span class="ci" aria-hidden="true"><Icon name={c.icon} size={20} /></span>{/if}
+          <svelte:element this={tag(level)} class="ct">{c.title}</svelte:element>
           <div class="cb">{@html md(c.md)}</div>
-        </div>
+        </li>
       {/each}
-    </div>
+    </ul>
   {:else if b.type === 'keyterms'}
     <dl class="terms">
       {#each b.terms as t}
@@ -74,28 +83,28 @@
       {/each}
     </dl>
   {:else if b.type === 'docs'}
-    <div class="docs">
-      <span class="eyebrow"><Icon name="book-open" size={13} /> Official documentation</span>
-      <div class="links">
+    <nav class="docs" aria-label="Official documentation">
+      <p class="eyebrow"><Icon name="book-open" size={13} /> Official documentation</p>
+      <ul class="links">
         {#each b.links as l}
-          <a href={l.url} target="_blank" rel="noopener" class="doc"><span>{l.title}</span><Icon name="external-link" size={13} /></a>
+          <li><a href={l.url} target="_blank" rel="noopener" class="doc"><span>{l.title}</span><Icon name="external-link" size={13} /><span class="sr-only"> (opens in a new tab)</span></a></li>
         {/each}
-      </div>
-    </div>
+      </ul>
+    </nav>
   {:else if b.type === 'challenge'}
     {@const s = SCENARIO[b.scenario]}
     {#if s}
-      <a class="challenge" href={href.play(s.id)}>
-        <span class="cic"><Icon name="blocks" size={26} /></span>
-        <div class="cbody">
+      <a class="challenge" href={href.play(s.id)} aria-label="Build challenge, {s.difficulty}: {s.title}. {plain(b.md)}{progress.scenarioDone(s.id) ? ' Completed.' : ''}">
+        <span class="cic" aria-hidden="true"><Icon name="blocks" size={26} /></span>
+        <span class="cbody" aria-hidden="true">
           <span class="eyebrow">Hands-on build challenge · {s.difficulty}</span>
-          <h4>{s.title}</h4>
-          <div class="muted">{@html md(b.md)}</div>
-        </div>
+          <span class="ctitle">{s.title}</span>
+          <span class="muted">{@html mdInline(b.md)}</span>
+        </span>
         {#if progress.scenarioDone(s.id)}
-          <span class="chip done"><Icon name="check" size={13} /> Done</span>
+          <span class="chip done" aria-hidden="true"><Icon name="check" size={13} /> Done</span>
         {:else}
-          <span class="go">Open canvas <Icon name="arrow-right" size={15} /></span>
+          <span class="go" aria-hidden="true">Open canvas <Icon name="arrow-right" size={15} /></span>
         {/if}
       </a>
     {/if}
@@ -112,18 +121,13 @@
     margin: 0.25em 0;
   }
   .prose :global(li::marker) {
-    color: var(--accent-2);
+    color: var(--accent-2-fg);
   }
   .prose :global(strong) {
     color: var(--text);
     font-weight: 650;
   }
   .prose {
-    color: var(--text-2);
-  }
-  :global(.panel) .prose,
-  :global(.inner) .prose,
-  :global(.slide) .prose {
     color: var(--text-2);
   }
 
@@ -138,7 +142,7 @@
     border-collapse: collapse;
     font-size: 0.88rem;
   }
-  th {
+  thead th {
     text-align: left;
     padding: 10px 14px;
     background: var(--surface-2);
@@ -147,24 +151,30 @@
     letter-spacing: 0.06em;
     color: var(--text-2);
   }
-  td {
+  td,
+  tbody th {
     padding: 10px 14px;
     border-top: 1px solid var(--border);
     color: var(--text-2);
     vertical-align: top;
+    text-align: left;
   }
-  td.first {
+  tbody th {
     font-weight: 600;
     color: var(--text);
   }
-  td :global(p) {
+  td :global(p),
+  th :global(p) {
     margin: 0;
   }
-  tr:hover td {
+  tr:hover td,
+  tr:hover th {
     background: var(--surface);
   }
 
   .cards {
+    list-style: none;
+    padding: 0;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 12px;
@@ -193,7 +203,7 @@
     color: var(--cc);
     margin-bottom: 10px;
   }
-  .c h4 {
+  .ct {
     margin: 0 0 4px;
     font-size: 0.98rem;
   }
@@ -221,7 +231,7 @@
     font-weight: 700;
     font-family: var(--mono);
     font-size: 0.84rem;
-    color: var(--accent-2);
+    color: var(--accent-2-fg);
   }
   dd {
     margin: 2px 0 0;
@@ -242,17 +252,21 @@
     display: inline-flex;
     gap: 6px;
     align-items: center;
+    margin: 0;
   }
   .links {
+    list-style: none;
+    padding: 0;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-top: 8px;
+    margin: 8px 0 0;
   }
   .doc {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    min-height: 32px;
     padding: 6px 11px;
     border-radius: 8px;
     background: var(--surface-2);
@@ -263,7 +277,7 @@
   }
   .doc:hover {
     background: var(--accent-soft);
-    text-decoration: none;
+    text-decoration: underline;
   }
 
   .challenge {
@@ -294,14 +308,19 @@
     display: grid;
     place-items: center;
     border-radius: 15px;
-    background: var(--grad);
+    background: var(--grad-strong);
     color: white;
   }
   .cbody {
     flex: 1;
+    display: flex;
+    flex-direction: column;
   }
-  .cbody h4 {
+  .ctitle {
+    display: block;
     margin: 2px 0;
+    font-size: 1.05rem;
+    font-weight: 700;
   }
   .cbody :global(p) {
     margin: 0;
@@ -313,11 +332,11 @@
     gap: 6px;
     font-weight: 700;
     font-size: 0.86rem;
-    color: var(--accent-2);
+    color: var(--accent-2-fg);
     white-space: nowrap;
   }
   .done {
-    color: var(--ok);
+    color: var(--ok-fg);
   }
   @media (max-width: 600px) {
     .challenge {

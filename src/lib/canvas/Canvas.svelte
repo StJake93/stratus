@@ -18,11 +18,34 @@
   let wrap: HTMLDivElement;
   let dragOver = $state(false);
 
-  // Persist any change (drags, resizes, edits) — debounced inside the store.
+  // Persist any change (drags, resizes, edits); the store debounces the write.
   $effect(() => {
     board.nodes;
     board.edges;
     board.save();
+  });
+
+  // Keep accessible names on nodes and connections up to date (xyflow renders them on the focusable wrappers).
+  $effect(() => {
+    const nodes = board.nodes;
+    const edges = board.edges;
+    board.issues;
+    let changed = false;
+    const nextNodes = nodes.map((n) => {
+      const label = board.describe(n);
+      if (n.ariaLabel === label) return n;
+      changed = true;
+      return { ...n, ariaLabel: label };
+    });
+    if (changed) board.nodes = nextNodes;
+    let edgeChanged = false;
+    const nextEdges = edges.map((e) => {
+      const label = board.describeEdge(e);
+      if (e.ariaLabel === label) return e;
+      edgeChanged = true;
+      return { ...e, ariaLabel: label };
+    });
+    if (edgeChanged) board.edges = nextEdges;
   });
 
   function ondrop(e: DragEvent) {
@@ -38,7 +61,8 @@
       const svc = (e as CustomEvent<string>).detail;
       const r = wrap.getBoundingClientRect();
       const jitter = () => (Math.random() - 0.5) * 80;
-      board.add(svc, screenToFlowPosition({ x: r.left + r.width / 2 + jitter(), y: r.top + r.height / 2 + jitter() }));
+      const center = screenToFlowPosition({ x: r.left + r.width / 2 + jitter(), y: r.top + r.height / 2 + jitter() });
+      board.addAt(svc, center);
     };
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || (e.target as HTMLElement)?.closest('input, textarea, select')) return;
@@ -71,12 +95,15 @@
   const minimapColor = (n: { type?: string; data: Record<string, unknown> }) => (n.type === "group" ? "transparent" : categoryColor(SERVICE[n.data.svc as string]?.category ?? "compute"));
 </script>
 
+<!-- Drag and drop is a pointer enhancement: every palette item can also be added by activating it. -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
   class="canvas"
   class:over={dragOver}
   bind:this={wrap}
-  role="application"
+  role="region"
   aria-label="Infrastructure canvas"
+  aria-describedby="canvas-help"
   data-tour="canvas"
   ondragover={(e) => {
     e.preventDefault();
@@ -86,6 +113,9 @@
   ondragleave={() => (dragOver = false)}
   {ondrop}
 >
+  <p id="canvas-help" class="sr-only">
+    Tab to a component and press Enter to select it; arrow keys move it. Use the Inspect panel to place components inside a VPC or subnet and to connect them without dragging.
+  </p>
   <SvelteFlow
     bind:nodes={board.nodes}
     bind:edges={board.edges}
@@ -103,9 +133,16 @@
     proOptions={{ hideAttribution: true }}
     onbeforeconnect={(c) => board.beforeConnect(c) ?? false}
     onnodedragstart={() => board.checkpoint()}
-    onnodedragstop={({ nodes }) => nodes.forEach((n) => board.reparent(n.id))}
+    onnodedragstop={({ nodes }) => {
+      nodes.forEach((n) => board.reparent(n.id));
+      board.retarget();
+    }}
     onnodeclick={({ node }) => (board.selected = node.id)}
     onpaneclick={() => (board.selected = null)}
+    onselectionchange={({ nodes }) => {
+      // Keyboard selection (Tab to a node, then Enter) opens it in the inspector too.
+      if (nodes.length === 1 && board.selected !== nodes[0].id) board.selected = nodes[0].id;
+    }}
     onbeforedelete={async ({ nodes, edges }: { nodes: FlowNode[]; edges: Edge[] }) => {
       board.remove(
         nodes.map((n) => n.id),
@@ -116,21 +153,22 @@
   >
     <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} />
     <Controls showLock={false} />
-    <MiniMap pannable zoomable nodeColor={minimapColor} maskColor={settings.theme === "dark" ? "rgba(10,13,23,0.6)" : "rgba(240,243,250,0.7)"} />
+    <MiniMap pannable zoomable ariaLabel="Canvas overview map" nodeColor={minimapColor} maskColor={settings.theme === "dark" ? "rgba(10,13,23,0.6)" : "rgba(240,243,250,0.7)"} />
     <Panel position="top-center">
       <div class="toolbar glass" data-tour="toolbar">
-        <button class="btn sm ghost" onclick={() => board.undo()} disabled={!board.canUndo} title="Undo (⌘Z)"><Icon name="undo-2" size={15} /></button>
-        <button class="btn sm ghost" onclick={() => board.redo()} disabled={!board.canRedo} title="Redo (⇧⌘Z)"><Icon name="redo-2" size={15} /></button>
-        <span class="sep"></span>
-        <button class="btn sm ghost" onclick={() => fitView({ padding: 0.25, duration: 400 })} title="Fit to screen"><Icon name="maximize-2" size={15} /></button>
+        <button class="btn sm ghost" onclick={() => board.undo()} disabled={!board.canUndo} aria-label="Undo" title="Undo (⌘Z)"><Icon name="undo-2" size={15} /></button>
+        <button class="btn sm ghost" onclick={() => board.redo()} disabled={!board.canRedo} aria-label="Redo" title="Redo (⇧⌘Z)"><Icon name="redo-2" size={15} /></button>
+        <span class="sep" aria-hidden="true"></span>
+        <button class="btn sm ghost" onclick={() => fitView({ padding: 0.25, duration: settings.reduced ? 0 : 400 })} aria-label="Fit diagram to screen" title="Fit to screen"><Icon name="maximize-2" size={15} /></button>
         <button
           class="btn sm ghost"
           onclick={() => {
             if (board.nodes.length && confirm('Clear the canvas? (You can undo this.)')) board.reset();
           }}
+          aria-label="Clear canvas"
           title="Clear canvas"><Icon name="eraser" size={15} /></button
         >
-        <span class="sep"></span>
+        <span class="sep" aria-hidden="true"></span>
         <button class="btn sm validate" class:bad={counts.error} class:warn={!counts.error && counts.warn} onclick={validateNow}>
           <Icon name={counts.error ? 'circle-x' : counts.warn ? 'triangle-alert' : 'shield-check'} size={15} />
           {counts.error ? `${counts.error} error${counts.error > 1 ? 's' : ''}` : counts.warn ? `${counts.warn} warning${counts.warn > 1 ? 's' : ''}` : 'Validate'}

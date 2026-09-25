@@ -3,8 +3,10 @@
   import Blocks from '../components/Blocks.svelte';
   import { LESSON } from '../data/lessons';
   import { TRACK, TRACKS } from '../data/tracks';
+  import { tick } from 'svelte';
   import { progress } from '../stores/progress.svelte';
   import { href, router } from '../stores/router.svelte';
+  import { settings } from '../stores/settings.svelte';
 
   let { id, step }: { id: string; step: number } = $props();
 
@@ -20,9 +22,16 @@
 
   let contentEl: HTMLElement | undefined = $state();
 
-  function go(n: number) {
+  async function go(n: number) {
     router.go(href.lesson(id, n));
-    contentEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    contentEl?.scrollIntoView({ behavior: settings.reduced ? 'auto' : 'smooth', block: 'start' });
+    // Move focus to the new step's heading so keyboard and screen reader users start at the top of it.
+    await tick();
+    const h1 = contentEl?.querySelector('h1');
+    if (h1) {
+      h1.setAttribute('tabindex', '-1');
+      h1.focus({ preventScroll: true });
+    }
   }
   function next() {
     progress.completeStep(id, idx);
@@ -32,20 +41,21 @@
 </script>
 
 {#if lesson && cur && track}
+  <div class="page">
   <div class="wrap" style:--tc={track.color}>
-    <aside class="outline">
+    <aside class="outline" aria-label="Lesson steps">
       <a class="back" href={href.track(track.id)}><Icon name="chevron-left" size={14} /> {track.title}</a>
       <div class="lhead">
         <span class="lic"><Icon name={lesson.icon} size={20} /></span>
         <strong>{lesson.title}</strong>
       </div>
-      <ol>
+      <ol class="focus-inset">
         {#each lesson.steps as s, i}
           {@const d = progress.stepDone(id, i)}
           <li>
-            <button class:on={i === idx} class:done={d} onclick={() => go(i)}>
-              <span class="n">{#if d}<Icon name="check" size={12} stroke={3} />{:else}{i + 1}{/if}</span>
-              <span>{s.title}</span>
+            <button class:on={i === idx} class:done={d} aria-current={i === idx ? 'step' : undefined} onclick={() => go(i)}>
+              <span class="n" aria-hidden="true">{#if d}<Icon name="check" size={12} stroke={3} />{:else}{i + 1}{/if}</span>
+              <span>{s.title}{#if d}<span class="sr-only"> (done)</span>{/if}</span>
             </button>
           </li>
         {/each}
@@ -57,7 +67,7 @@
     </aside>
 
     <article class="content" bind:this={contentEl}>
-      <div class="progress"><span style:width="{((idx + 1) / lesson.steps.length) * 100}%"></span></div>
+      <div class="progress" role="progressbar" aria-label="Lesson progress" aria-valuemin={1} aria-valuemax={lesson.steps.length} aria-valuenow={idx + 1} aria-valuetext="Step {idx + 1} of {lesson.steps.length}"><span style:width="{((idx + 1) / lesson.steps.length) * 100}%"></span></div>
       <header>
         <span class="eyebrow">Step {idx + 1} of {lesson.steps.length}</span>
         <h1>{cur.title}</h1>
@@ -97,11 +107,16 @@
       {/if}
     </article>
   </div>
+  </div>
 {:else}
   <div class="nf"><h1>Lesson not found</h1><a href={href.home()}>Back to dashboard</a></div>
 {/if}
 
 <style>
+  /* Layout follows the main column's width (the sidebar takes part of the viewport), not the viewport's. */
+  .page {
+    container-type: inline-size;
+  }
   .wrap {
     display: grid;
     grid-template-columns: 260px minmax(0, 1fr);
@@ -154,6 +169,7 @@
     align-items: center;
     gap: 10px;
     width: 100%;
+    min-height: 36px;
     text-align: left;
     padding: 7px 10px;
     margin-left: -2px;
@@ -192,8 +208,8 @@
     display: flex;
     gap: 14px;
     margin-top: 16px;
-    font-size: 0.78rem;
-    color: var(--text-3);
+    font-size: 0.8rem;
+    color: var(--text-2);
   }
   .meta span {
     display: inline-flex;
@@ -208,7 +224,7 @@
   .progress {
     height: 4px;
     border-radius: 4px;
-    background: var(--surface-3);
+    background: var(--track);
     overflow: hidden;
     margin-bottom: 22px;
   }
@@ -258,10 +274,11 @@
   .nf {
     padding: 60px;
   }
-  @media (max-width: 960px) {
+  /* Stack the outline above the content once two columns would squeeze diagrams and widgets. */
+  @container (max-width: 979px) {
     .wrap {
       grid-template-columns: minmax(0, 1fr);
-      padding: 56px 16px 60px;
+      padding: 28px 24px 60px;
       gap: 18px;
     }
     .outline {
@@ -285,6 +302,11 @@
     }
     .meta {
       display: none;
+    }
+  }
+  @media (max-width: 900px) {
+    .wrap {
+      padding: 56px 16px 60px;
     }
   }
 </style>

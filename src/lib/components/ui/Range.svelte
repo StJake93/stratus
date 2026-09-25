@@ -5,16 +5,27 @@
     min = 0,
     max = 100,
     step = 1,
-    format = (v: number) => String(v)
-  }: { label: string; value: number; min?: number; max?: number; step?: number; format?: (v: number) => string } = $props();
+    format = (v: number) => String(v),
+    valuetext
+  }: {
+    label: string;
+    value: number;
+    min?: number;
+    max?: number;
+    step?: number;
+    format?: (v: number) => string;
+    /** Spoken value for screen readers; defaults to the formatted display value. */
+    valuetext?: (v: number) => string;
+  } = $props();
 
+  const id = `range-${Math.random().toString(36).slice(2, 8)}`;
   const pct = $derived(((value - min) / (max - min)) * 100);
 </script>
 
 <div class="ctl">
-  <label>
+  <label for={id}>
     <span>{label}</span>
-    <output>{format(value)}</output>
+    <output for={id} aria-hidden="true">{format(value)}</output>
   </label>
-  <input type="range" {min} {max} {step} bind:value style:--pct="{pct}%" aria-label={label} />
+  <input {id} type="range" {min} {max} {step} bind:value style:--pct="{pct}%" aria-valuetext={(valuetext ?? format)(value)} />
 </div>

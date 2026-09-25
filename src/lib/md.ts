@@ -9,8 +9,11 @@ function inline(s: string): string {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, url) => {
+      // External links open in a new tab, so say so for screen reader users (WCAG 3.2.5 advisory).
       const ext = /^https?:/.test(url);
-      return `<a href="${url}"${ext ? ' target="_blank" rel="noopener"' : ''}>${text}</a>`;
+      return ext
+        ? `<a class="lnk" href="${url}" target="_blank" rel="noopener">${text}<span class="sr-only"> (opens in a new tab)</span></a>`
+        : `<a class="lnk" href="${url}">${text}</a>`;
     });
 }
 
@@ -60,3 +63,15 @@ export function md(src: string): string {
   cache.set(src, html);
   return html;
 }
+
+/** Plain text version of inline markdown, for aria-labels and document titles. */
+export function plain(src: string): string {
+  return src
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+}
+
+/** Inline markdown only (no paragraph wrapper), for places like <legend> that can't contain <p>. */
+export const mdInline = (src: string): string => inline(src.trim());

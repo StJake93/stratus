@@ -31,6 +31,26 @@
     lastSel = s;
   });
 
+  const tabs = $derived(
+    [
+      ...(scenario ? [{ id: 'scenario' as Tab, label: 'Goals', icon: 'list-checks' }] : []),
+      { id: 'inspect' as Tab, label: 'Inspect', icon: 'sliders-horizontal' },
+      { id: 'issues' as Tab, label: 'Issues', icon: 'shield-check' },
+      { id: 'terraform' as Tab, label: 'Terraform', icon: 'file-code' }
+    ]
+  );
+  function tabKey(e: KeyboardEvent) {
+    const i = tabs.findIndex((t) => t.id === tab);
+    let n = i;
+    if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') n = 0;
+    else if (e.key === 'End') n = tabs.length - 1;
+    else return;
+    e.preventDefault();
+    tab = tabs[n].id;
+    (document.getElementById(`ptab-${tab}`) as HTMLElement | null)?.focus();
+  }
   const errs = $derived(board.issues.filter((i) => i.level === 'error').length);
   const warns = $derived(board.issues.filter((i) => i.level === 'warn').length);
 </script>
@@ -40,22 +60,22 @@
     <div class="title">
       {#if scenario}
         <a class="crumb" href={href.scenarios()}><Icon name="chevron-left" size={14} /> Scenarios</a>
-        <strong>{scenario.title}</strong>
+        <h1>{scenario.title}</h1>
       {:else}
         <span class="crumb"><Icon name="blocks" size={14} /> Free play</span>
-        <strong>AWS architecture sandbox</strong>
+        <h1>AWS architecture sandbox</h1>
       {/if}
     </div>
     <span class="spacer"></span>
-    <button class="btn sm mob" onclick={() => (showPalette = !showPalette)}><Icon name="layout-grid" size={15} /> Services</button>
-    <button class="btn sm mob panel-btn" onclick={() => (showPanel = !showPanel)}><Icon name="sliders-horizontal" size={15} /> Panel</button>
+    <button class="btn sm mob" aria-expanded={showPalette} aria-controls="play-palette" onclick={() => (showPalette = !showPalette)}><Icon name="layout-grid" size={15} /> Services</button>
+    <button class="btn sm mob panel-btn" aria-expanded={showPanel} aria-controls="play-panel" onclick={() => (showPanel = !showPanel)}><Icon name="sliders-horizontal" size={15} /> Panel</button>
     {#if !scenario}
       <a class="btn sm" href={href.scenarios()}><Icon name="list-checks" size={15} /> Guided scenarios</a>
     {/if}
   </header>
 
   <div class="grid">
-    <div class="pal" class:show={showPalette}>
+    <div class="pal" class:show={showPalette} id="play-palette">
       <Palette />
     </div>
     <div class="cv">
@@ -63,19 +83,26 @@
         <Canvas />
       </SvelteFlowProvider>
     </div>
-    <aside class="panel" class:show={showPanel} data-tour="panels">
-      <nav class="tabs">
-        {#if scenario}
-          <button class:on={tab === 'scenario'} onclick={() => (tab = 'scenario')}><Icon name="list-checks" size={14} /> Goals</button>
-        {/if}
-        <button class:on={tab === 'inspect'} onclick={() => (tab = 'inspect')}><Icon name="sliders-horizontal" size={14} /> Inspect</button>
-        <button class:on={tab === 'issues'} onclick={() => (tab = 'issues')}>
-          <Icon name="shield-check" size={14} /> Issues
-          {#if errs}<span class="n e">{errs}</span>{:else if warns}<span class="n w">{warns}</span>{/if}
-        </button>
-        <button class:on={tab === 'terraform'} onclick={() => (tab = 'terraform')}><Icon name="file-code" size={14} /> Terraform</button>
-      </nav>
-      <div class="body">
+    <aside class="panel" class:show={showPanel} data-tour="panels" id="play-panel" aria-label="Design panel">
+      <div class="tabs" role="tablist" aria-label="Panel" tabindex="-1" onkeydown={tabKey}>
+        {#each tabs as t (t.id)}
+          <button
+            role="tab"
+            id="ptab-{t.id}"
+            aria-selected={tab === t.id}
+            aria-controls="ppanel"
+            tabindex={tab === t.id ? 0 : -1}
+            onclick={() => (tab = t.id)}
+          >
+            <Icon name={t.icon} size={14} />
+            {t.label}
+            {#if t.id === 'issues'}
+              {#if errs}<span class="n e">{errs}<span class="sr-only"> errors</span></span>{:else if warns}<span class="n w">{warns}<span class="sr-only"> warnings</span></span>{/if}
+            {/if}
+          </button>
+        {/each}
+      </div>
+      <div class="body" role="tabpanel" id="ppanel" aria-labelledby="ptab-{tab}" tabindex="-1">
         {#if tab === 'scenario' && scenario}
           {#key scenario.id}<ScenarioPanel {scenario} />{/key}
         {:else if tab === 'inspect'}
@@ -113,11 +140,13 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 0.74rem;
+    font-size: 0.76rem;
     color: var(--text-3);
   }
-  .title strong {
+  .title h1 {
+    margin: 0;
     font-size: 0.98rem;
+    letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -156,19 +185,26 @@
     gap: 5px;
     padding: 8px 4px;
     border: 0;
-    border-bottom: 2px solid transparent;
+    border-bottom: 3px solid transparent;
     background: none;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-weight: 600;
-    color: var(--text-3);
+    color: var(--text-2);
     white-space: nowrap;
+    border-radius: 8px 8px 0 0;
   }
   .tabs button:hover {
     color: var(--text);
   }
-  .tabs button.on {
+  .tabs button[aria-selected='true'] {
     color: var(--text);
-    border-bottom-color: var(--accent);
+    border-bottom-color: var(--accent-strong);
+  }
+  .tabs button:focus-visible {
+    outline-offset: -2px;
+  }
+  .body:focus {
+    outline: none;
   }
   .n {
     min-width: 17px;
@@ -181,7 +217,7 @@
     color: white;
   }
   .n.e {
-    background: var(--err);
+    background: var(--err-strong);
   }
   .n.w {
     background: var(--warn);

@@ -2,9 +2,11 @@
   import Icon from '../Icon.svelte';
   import { highlight } from '../../highlight';
   import { toast } from '../../stores/toast.svelte';
+  import { scrollable } from '../../actions';
 
   let { code, lang = 'text', file, caption }: { code: string; lang?: string; file?: string; caption?: string } = $props();
   const html = $derived(highlight(code.replace(/^\n+|\s+$/g, ''), lang));
+  const name = $derived(file ?? `${lang.toUpperCase()} snippet`);
 
   async function copy() {
     try {
@@ -16,13 +18,14 @@
   }
 </script>
 
-<figure class="code">
+<figure class="code" aria-label={name}>
   <header>
-    <span class="dots"><i></i><i></i><i></i></span>
+    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
     <span class="file">{file ?? lang.toUpperCase()}</span>
-    <button class="btn sm ghost" onclick={copy} aria-label="Copy code"><Icon name="copy" size={14} /></button>
+    <button class="btn sm ghost" onclick={copy} aria-label="Copy {name}"><Icon name="copy" size={14} /></button>
   </header>
-  <pre><code>{@html html}</code></pre>
+  <!-- Becomes focusable when lines overflow, so keyboard users can scroll them (WCAG 2.1.1). -->
+  <pre use:scrollable><code>{@html html}</code></pre>
   {#if caption}<figcaption>{caption}</figcaption>{/if}
 </figure>
 
@@ -42,8 +45,14 @@
     align-items: center;
     gap: 10px;
     padding: 6px 8px 6px 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    color: #8a93a8;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: #a3adc2;
+  }
+  header .btn {
+    color: #d6deeb;
+  }
+  header .btn:hover {
+    background: rgba(255, 255, 255, 0.08);
   }
   .dots {
     display: flex;
@@ -68,6 +77,10 @@
     line-height: 1.65;
     color: #d6deeb;
   }
+  pre:focus-visible {
+    outline: 2px solid #67e8f9;
+    outline-offset: -2px;
+  }
   pre code {
     background: none;
     border: 0;
@@ -77,11 +90,12 @@
   figcaption {
     padding: 8px 14px;
     font-size: 0.8rem;
-    color: #8a93a8;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    color: #a3adc2;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
+  /* Token colours are checked against every code background by scripts/contrast.mjs. */
   :global(.t-com) {
-    color: #637196;
+    color: #8a96bb;
     font-style: italic;
   }
   :global(.t-str) {

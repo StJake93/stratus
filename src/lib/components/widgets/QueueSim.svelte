@@ -1,6 +1,8 @@
 <script lang="ts">
+  import WidgetFrame from './WidgetFrame.svelte';
   import Range from '../ui/Range.svelte';
   import Icon from '../Icon.svelte';
+  import { settings } from '../../stores/settings.svelte';
 
   let produce = $state(30); // msgs per tick-second
   let consumers = $state(2);
@@ -14,8 +16,11 @@
   let dlq = $state(0);
   let hist = $state<number[]>([]);
   let burst = 0;
+  // Auto-updating, so it can be paused (WCAG 2.2.2); starts paused if the user prefers less motion.
+  let running = $state(!settings.reduced);
 
   $effect(() => {
+    if (!running) return;
     const t = setInterval(() => {
       const incoming = produce + (burst > 0 ? 60 : 0);
       if (burst > 0) burst--;
@@ -48,37 +53,38 @@
   const visible = $derived(Math.min(40, Math.ceil(depth / 5)));
 </script>
 
-<div class="wbox">
-  <div class="whead">
-    <span class="wtag">Simulation</span><h4>Decoupling with a queue</h4>
-    <span class="spacer"></span>
-    <div class="seg">
-      <button class:on={!useQueue} onclick={() => ((useQueue = false), reset())}>Direct calls</button>
-      <button class:on={useQueue} onclick={() => ((useQueue = true), reset())}>With SQS</button>
+<WidgetFrame kind="Simulation" title="Decoupling with a queue">
+  {#snippet actions()}
+    <div class="seg" role="group" aria-label="Architecture">
+      <button aria-pressed={!useQueue} onclick={() => ((useQueue = false), reset())}>Direct calls</button>
+      <button aria-pressed={useQueue} onclick={() => ((useQueue = true), reset())}>With SQS</button>
     </div>
-  </div>
+    <button class="btn sm" onclick={() => (running = !running)}><Icon name={running ? 'pause' : 'play'} size={14} /> {running ? 'Pause' : 'Resume'}<span class="sr-only"> simulation</span></button>
+  {/snippet}
 
-  <div class="pipe">
+  <div class="pipe" aria-hidden="true">
     <div class="box prod"><Icon name="users" size={18} /><span>Producers</span><small>{produce}/s</small></div>
-    <div class="flowline" class:fast={produce > consumers * PER}></div>
+    <div class="flowline" class:fast={produce > consumers * PER} class:paused={!running}></div>
     {#if useQueue}
-      <div class="queue" title="{depth} messages waiting">
+      <div class="queue">
         <div class="msgs">{#each Array(visible) as _, i (i)}<i></i>{/each}</div>
         <span>SQS · {depth.toLocaleString()} waiting</span>
       </div>
-      <div class="flowline"></div>
+      <div class="flowline" class:paused={!running}></div>
     {/if}
     <div class="box cons"><Icon name="lambda" size={18} /><span>Consumers ×{consumers}</span><small>{consumers * PER}/s max</small></div>
   </div>
+  <p class="sr-only">Producers send {produce} messages per second{useQueue ? ' into an SQS queue' : ' directly'} to {consumers} consumer{consumers === 1 ? '' : 's'} that can handle {consumers * PER} per second in total.</p>
 
   <div class="ctls">
-    <Range label="Producer rate" bind:value={produce} min={0} max={80} format={(v) => `${v} msg/s`} />
+    <Range label="Producer rate" bind:value={produce} min={0} max={80} format={(v) => `${v} msg/s`} valuetext={(v) => `${v} messages per second`} />
     <Range label="Consumers" bind:value={consumers} min={1} max={8} />
     <Range label="Processing failure rate" bind:value={failPct} min={0} max={50} format={(v) => `${v}%`} />
   </div>
   <div class="row">
-    <button class="btn sm" onclick={() => (burst = 6)}><Icon name="zap" size={14} /> Traffic spike</button>
-    <button class="btn sm ghost" onclick={reset}><Icon name="rotate-ccw" size={14} /> Reset</button>
+    <button class="btn sm" onclick={() => ((burst = 6), (running = true))}><Icon name="zap" size={14} /> Traffic spike</button>
+    <button class="btn sm ghost" onclick={reset}><Icon name="rotate-ccw" size={14} /> Reset<span class="sr-only"> counters</span></button>
+    {#if !running}<span class="chip">Paused</span>{/if}
   </div>
 
   <div class="stats">
@@ -87,39 +93,20 @@
       <div class="stat"><span>Queue depth</span><b>{depth.toLocaleString()}</b></div>
       <div class="stat"><span>Dead-letter queue</span><b class:warn={dlq > 0}>{dlq}</b></div>
     {:else}
-      <div class="stat"><span>Errors / dropped</span><b class:bad={errors > 0}>{errors.toLocaleString()}</b></div>
+      <div class="stat"><span>Errors or dropped</span><b class:bad={errors > 0}>{errors.toLocaleString()}</b></div>
     {/if}
   </div>
   {#if useQueue}
-    <svg viewBox="0 0 500 60" class="spark" preserveAspectRatio="none">
+    <svg viewBox="0 0 500 60" class="spark" preserveAspectRatio="none" role="img" aria-label="Queue depth over the last 25 seconds, currently {depth.toLocaleString()} messages.">
       <polyline points={hist.map((d, i) => `${(i / 49) * 500},${60 - (d / peak) * 56}`).join(' ')} />
     </svg>
     <p class="faint small">The queue absorbs spikes: nothing is lost, it just waits. Watch <strong>ApproximateAgeOfOldestMessage</strong> and scale consumers when the backlog grows. Messages that keep failing land in the DLQ for inspection.</p>
   {:else}
     <p class="faint small">Without a buffer, every request beyond consumer capacity fails immediately and failed work is simply lost. Try a traffic spike.</p>
   {/if}
-</div>
+</WidgetFrame>
 
 <style>
-  .seg {
-    display: inline-flex;
-    padding: 3px;
-    border-radius: 9px;
-    background: var(--surface-2);
-  }
-  .seg button {
-    border: 0;
-    background: none;
-    padding: 4px 12px;
-    border-radius: 7px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-2);
-  }
-  .seg button.on {
-    background: var(--accent);
-    color: white;
-  }
   .pipe {
     display: flex;
     align-items: center;
@@ -140,7 +127,7 @@
   .box small {
     font-family: var(--mono);
     font-weight: 400;
-    color: var(--text-3);
+    color: var(--text-2);
   }
   .prod {
     background: rgba(148, 163, 184, 0.14);
@@ -163,6 +150,9 @@
   .flowline.fast {
     animation-duration: 0.3s;
   }
+  .flowline.paused {
+    animation-play-state: paused;
+  }
   @keyframes move {
     to {
       background-position: 32px 0;
@@ -180,9 +170,9 @@
     min-width: 140px;
   }
   .queue span {
-    font-size: 0.74rem;
+    font-size: 0.76rem;
     font-weight: 700;
-    color: var(--c-integration);
+    color: color-mix(in oklab, var(--c-integration), var(--ink) var(--ink-mix));
     text-align: center;
   }
   .msgs {
@@ -221,10 +211,10 @@
     font-size: 1.1rem !important;
   }
   .bad {
-    color: var(--err);
+    color: var(--err-fg);
   }
   .warn {
-    color: var(--warn);
+    color: var(--warn-fg);
   }
   .spark {
     width: 100%;

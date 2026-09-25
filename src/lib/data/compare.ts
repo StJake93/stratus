@@ -1,5 +1,5 @@
 // Cross-cloud concept map. Each concept lists the closest equivalent on each provider
-// plus the Terraform resource you'd use — a Rosetta Stone for multi-cloud learners.
+// plus the Terraform resource you'd use: a Rosetta Stone for multi-cloud learners.
 
 export interface Offering {
   name: string;
@@ -34,7 +34,7 @@ export const CONCEPTS: Concept[] = [
     aws: { name: 'Organizations → Accounts', blurb: 'The **account** is the hard isolation & billing boundary. Group accounts in OUs under an Organization; apply guardrails with SCPs.', docs: `${AWS}/organizations/latest/userguide/orgs_introduction.html`, tf: 'aws_organizations_account' },
     azure: { name: 'Management groups → Subscriptions → Resource groups', blurb: '**Subscriptions** are billing/quota boundaries; every resource lives in a **resource group**. Policies inherit down the tree.', docs: `${AZ}/governance/management-groups/overview`, tf: 'azurerm_resource_group' },
     gcp: { name: 'Organization → Folders → Projects', blurb: 'The **project** is the core unit: resources, APIs, billing and IAM all attach to a project.', docs: `${GCP}/resource-manager/docs/cloud-platform-resource-hierarchy`, tf: 'google_project' },
-    differences: ['Azure **resource groups** have no direct AWS equivalent — AWS relies on tags and CloudFormation stacks for grouping.', 'Many teams use one AWS account / GCP project / Azure subscription **per environment per workload**.']
+    differences: ['Azure **resource groups** have no direct AWS equivalent. AWS relies on tags and CloudFormation stacks for grouping.', 'Many teams use one AWS account / GCP project / Azure subscription **per environment per workload**.']
   },
   {
     id: 'iam',
@@ -228,11 +228,11 @@ export const CONCEPTS: Concept[] = [
     title: 'Native Infrastructure as Code',
     icon: 'file-code',
     category: 'Operations',
-    summary: 'Each cloud’s own IaC — and Terraform works across all of them.',
+    summary: 'Each cloud’s own IaC, and Terraform works across all of them.',
     aws: { name: 'CloudFormation / CDK', blurb: 'YAML/JSON templates deployed as stacks; CDK generates them from TypeScript, Python and more.', docs: `${AWS}/AWSCloudFormation/latest/UserGuide/Welcome.html`, tf: 'provider "aws"' },
     azure: { name: 'Bicep / ARM templates', blurb: 'Bicep is a concise DSL compiling to ARM JSON; deployment stacks manage lifecycle.', docs: `${AZ}/azure-resource-manager/bicep/overview`, tf: 'provider "azurerm"' },
     gcp: { name: 'Infrastructure Manager', blurb: 'Google’s managed service for running **Terraform** configurations.', docs: `${GCP}/infrastructure-manager/docs/overview`, tf: 'provider "google"' },
-    differences: ['Terraform uses the **same workflow** everywhere — only the provider and resource types change.']
+    differences: ['Terraform uses the **same workflow** everywhere. Only the provider and resource types change.']
   }
 ];
 

@@ -1,6 +1,8 @@
 <script lang="ts">
+  import WidgetFrame from './WidgetFrame.svelte';
   import Icon from '../Icon.svelte';
   import { highlight } from '../../highlight';
+  import { scrollable } from '../../actions';
 
   interface Stmt {
     sid: string;
@@ -52,45 +54,46 @@
   );
 </script>
 
-<div class="wbox">
-  <div class="whead"><span class="wtag">Interactive</span><h4>IAM policy evaluator</h4></div>
+<WidgetFrame title="IAM policy evaluator">
   <div class="grid">
-    <div>
-      <span class="eyebrow">Identity policy statements</span>
+    <fieldset>
+      <legend class="eyebrow">Identity policy statements</legend>
       <div class="stmts">
         {#each stmts as s}
           <label class="stmt" class:hit={matches(s)} class:deny={s.effect === 'Deny'}>
             <input type="checkbox" bind:checked={s.on} />
             <span class="eff">{s.effect}</span>
             <span class="body"><code>{s.action}</code><small>{s.resource}</small></span>
-            {#if matches(s)}<span class="m">match</span>{/if}
+            {#if matches(s)}<span class="m">Matches</span>{/if}
           </label>
         {/each}
       </div>
       <details>
         <summary>View as JSON</summary>
-        <pre class="json"><code>{@html highlight(json, 'json')}</code></pre>
+        <pre class="json" use:scrollable><code>{@html highlight(json, 'json')}</code></pre>
       </details>
-    </div>
+    </fieldset>
     <div>
-      <span class="eyebrow">Request</span>
+      <p class="eyebrow">Request</p>
       <label class="fld">Action <select class="input" bind:value={action}>{#each actions as a}<option>{a}</option>{/each}</select></label>
       <label class="fld">Resource <select class="input" bind:value={resource}>{#each resources as r}<option>{r}</option>{/each}</select></label>
 
-      <div class="flow">
-        <div class="step" class:lit={matched.some((s) => s.effect === 'Deny')}><Icon name="shield" size={14} /> Any explicit Deny?</div>
-        <div class="step" class:lit={verdict.kind === 'allow'}><Icon name="check" size={14} /> Any Allow?</div>
-        <div class="step" class:lit={verdict.kind === 'implicit'}><Icon name="lock" size={14} /> Default: deny</div>
+      <ol class="flow" aria-label="Evaluation order">
+        <li class="step" class:lit={matched.some((s) => s.effect === 'Deny')}><Icon name="shield" size={14} /> Any explicit Deny?{#if matched.some((s) => s.effect === 'Deny')}<span class="sr-only"> Yes, this decides.</span>{/if}</li>
+        <li class="step" class:lit={verdict.kind === 'allow'}><Icon name="check" size={14} /> Any Allow?{#if verdict.kind === 'allow'}<span class="sr-only"> Yes, this decides.</span>{/if}</li>
+        <li class="step" class:lit={verdict.kind === 'implicit'}><Icon name="lock" size={14} /> Default: deny{#if verdict.kind === 'implicit'}<span class="sr-only"> This decides.</span>{/if}</li>
+      </ol>
+      <div aria-live="polite">
+        {#key verdict.kind + action + resource}
+          <div class="verdict {verdict.kind} fade-in">
+            <Icon name={verdict.kind === 'allow' ? 'circle-check' : 'circle-x'} size={22} />
+            <div><strong>{verdict.title}</strong><p>{verdict.text}</p></div>
+          </div>
+        {/key}
       </div>
-      {#key verdict.kind + action + resource}
-        <div class="verdict {verdict.kind} fade-in">
-          <Icon name={verdict.kind === 'allow' ? 'circle-check' : 'circle-x'} size={22} />
-          <div><strong>{verdict.title}</strong><p>{verdict.text}</p></div>
-        </div>
-      {/key}
     </div>
   </div>
-</div>
+</WidgetFrame>
 
 <style>
   .grid {
@@ -102,6 +105,15 @@
     .grid {
       grid-template-columns: 1fr;
     }
+  }
+  fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  legend {
+    padding: 0;
   }
   .stmts {
     display: grid;
@@ -120,25 +132,22 @@
     transition: all 0.2s;
   }
   .stmt.hit {
-    border-color: var(--ok);
+    border: 2px solid var(--ok);
     background: var(--ok-soft);
   }
   .stmt.hit.deny {
     border-color: var(--err);
     background: var(--err-soft);
   }
-  .stmt input {
-    accent-color: var(--accent);
-  }
   .eff {
     font-size: 0.7rem;
     font-weight: 800;
     text-transform: uppercase;
     width: 44px;
-    color: var(--ok);
+    color: var(--ok-fg);
   }
   .deny .eff {
-    color: var(--err);
+    color: var(--err-fg);
   }
   .body {
     flex: 1;
@@ -148,8 +157,8 @@
   }
   .body small {
     font-family: var(--mono);
-    font-size: 0.7rem;
-    color: var(--text-3);
+    font-size: 0.72rem;
+    color: var(--text-2);
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -158,13 +167,20 @@
   }
   .m {
     font-size: 0.68rem;
-    font-weight: 700;
+    font-weight: 800;
     text-transform: uppercase;
+    color: var(--text);
   }
   details summary {
     cursor: pointer;
-    font-size: 0.82rem;
+    min-height: 28px;
+    font-size: 0.84rem;
+    font-weight: 600;
     color: var(--text-2);
+  }
+  .json:focus-visible {
+    outline: 2px solid #67e8f9;
+    outline-offset: -2px;
   }
   .json {
     margin: 6px 0 0;
@@ -181,6 +197,9 @@
     border: 0;
     padding: 0;
   }
+  .eyebrow {
+    margin: 0;
+  }
   .fld {
     display: grid;
     gap: 4px;
@@ -194,9 +213,11 @@
     font-size: 0.76rem;
   }
   .flow {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 10px;
     display: flex;
     gap: 4px;
-    margin-bottom: 10px;
   }
   .step {
     flex: 1;
@@ -209,14 +230,14 @@
     font-weight: 600;
     border-radius: 8px;
     background: var(--surface-2);
-    color: var(--text-3);
+    color: var(--text-2);
     transition: all 0.3s;
     text-align: center;
   }
   .step.lit {
     background: var(--accent-soft);
     color: var(--text);
-    box-shadow: inset 0 0 0 1px var(--accent);
+    box-shadow: inset 0 0 0 2px var(--accent-strong);
   }
   .verdict {
     display: flex;
@@ -231,14 +252,14 @@
   }
   .verdict.allow {
     background: var(--ok-soft);
-    color: var(--ok);
+    color: var(--ok-fg);
   }
   .verdict.deny {
     background: var(--err-soft);
-    color: var(--err);
+    color: var(--err-fg);
   }
   .verdict.implicit {
     background: var(--warn-soft);
-    color: var(--warn);
+    color: var(--warn-fg);
   }
 </style>

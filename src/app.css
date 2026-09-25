@@ -1,6 +1,12 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
 
+/*
+ * Design tokens.
+ * Base colours (--ok, --aws, category colours...) are for fills, borders and icons.
+ * Any colour used for TEXT must come from a *-fg token (or --text/--text-2/--text-3),
+ * which are tuned per theme to meet WCAG 2.2 AA contrast. Check with `npm run audit:contrast`.
+ */
 :root {
   --bg: #0a0d17;
   --bg-2: #0f1424;
@@ -11,30 +17,51 @@
   --solid-2: #1a2238;
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.16);
+  --border-input: #858ea6;
+  --track: #6e768c;
   --text: #e8ecf6;
-  --text-2: #a9b2c8;
-  --text-3: #6f7a94;
+  --text-2: #bcc4d8;
+  --text-3: #9ca6bd;
 
   --accent: #7c5cff;
   --accent-2: #22d3ee;
   --accent-soft: rgba(124, 92, 255, 0.16);
+  --accent-2-soft: rgba(34, 211, 238, 0.12);
+  --accent-strong: #6d4df5;
+  --accent-fg: #b3a1ff;
+  --accent-2-fg: #22d3ee;
+  --link: #67e8f9;
+  --focus: #67e8f9;
   --grad: linear-gradient(135deg, #7c5cff 0%, #22d3ee 100%);
+  --grad-strong: linear-gradient(135deg, #6d4df5 0%, #0e7490 100%);
+  --grad-text: linear-gradient(135deg, #a996ff 0%, #22d3ee 100%);
 
   --ok: #34d399;
   --ok-soft: rgba(52, 211, 153, 0.14);
+  --ok-fg: #34d399;
+  --ok-strong: #047857;
   --warn: #fbbf24;
   --warn-soft: rgba(251, 191, 36, 0.14);
+  --warn-fg: #fbbf24;
   --err: #f87171;
   --err-soft: rgba(248, 113, 113, 0.14);
+  --err-fg: #fb9a9a;
+  --err-strong: #dc2626;
   --info: #60a5fa;
   --info-soft: rgba(96, 165, 250, 0.14);
+  --info-fg: #8cbffc;
+  --info-strong: #2563eb;
 
   --aws: #ff9900;
   --tf: #8b5cf6;
   --azure: #3b9cff;
   --gcp: #34a853;
+  --aws-fg: #ffad33;
+  --tf-fg: #b49cfb;
+  --azure-fg: #6cb5ff;
+  --gcp-fg: #4cc26c;
 
-  /* service category colours */
+  /* service category colours (fills and icons) */
   --c-compute: #ff9900;
   --c-containers: #f97316;
   --c-storage: #3fb950;
@@ -44,6 +71,10 @@
   --c-integration: #e0488f;
   --c-monitoring: #d6a50b;
   --c-edge: #22b8cf;
+
+  /* For data-driven colours shown as text: color-mix(in oklab, var(--x), var(--ink) var(--ink-mix)) */
+  --ink: #ffffff;
+  --ink-mix: 38%;
 
   --radius: 14px;
   --radius-sm: 9px;
@@ -68,10 +99,33 @@
   --solid-2: #f3f5fa;
   --border: rgba(15, 23, 42, 0.09);
   --border-strong: rgba(15, 23, 42, 0.18);
+  --border-input: #6b7689;
+  --track: #7d879a;
   --text: #0f172a;
-  --text-2: #475569;
-  --text-3: #8391a7;
+  --text-2: #3b475b;
+  --text-3: #535f74;
+
   --accent-soft: rgba(124, 92, 255, 0.12);
+  --accent-2-soft: rgba(14, 116, 144, 0.1);
+  --accent-fg: #5b3fd9;
+  --accent-2-fg: #0b6477;
+  --link: #0b6477;
+  --focus: #0b6477;
+  --grad-text: linear-gradient(135deg, #5b3fd9 0%, #0b6477 100%);
+
+  --ok-fg: #046c4e;
+  --warn-fg: #8a3f0a;
+  --err-fg: #b42318;
+  --info-fg: #1d4ed8;
+
+  --aws-fg: #954300;
+  --tf-fg: #6d28d9;
+  --azure-fg: #1559b0;
+  --gcp-fg: #17652d;
+
+  --ink: #0f172a;
+  --ink-mix: 60%;
+
   --shadow: 0 10px 30px -14px rgba(15, 23, 42, 0.25);
   --shadow-lg: 0 24px 60px -24px rgba(15, 23, 42, 0.35);
   color-scheme: light;
@@ -128,11 +182,21 @@ p {
 }
 
 a {
-  color: var(--accent-2);
+  color: var(--link);
   text-decoration: none;
 }
 a:hover {
   text-decoration: underline;
+}
+/* Links inside running text are underlined so they never rely on colour alone (WCAG 1.4.1). */
+a.lnk {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+a.lnk:hover {
+  text-decoration-thickness: 2px;
 }
 
 code {
@@ -156,6 +220,14 @@ textarea {
   font: inherit;
   color: inherit;
 }
+::placeholder {
+  color: var(--text-3);
+  opacity: 1;
+}
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent-strong);
+}
 
 ::selection {
   background: rgba(124, 92, 255, 0.4);
@@ -175,9 +247,47 @@ textarea {
   background: transparent;
 }
 
+/* One consistent, high-contrast focus ring (3:1+ against every surface in both themes). */
 :focus-visible {
-  outline: 2px solid var(--accent-2);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+/* Inside scroll containers an outer ring would be clipped, so draw it inside instead. */
+.focus-inset:focus-visible,
+.focus-inset :focus-visible {
+  outline-offset: -2px;
+}
+
+/* ---------- accessibility utilities ---------- */
+
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 2px solid var(--focus);
+  background: var(--solid);
+  color: var(--text);
+  font-weight: 700;
+  transform: translateY(-160%);
+  transition: transform 0.15s;
+}
+.skip-link:focus {
+  transform: none;
 }
 
 /* ---------- shared primitives ---------- */
@@ -190,7 +300,7 @@ textarea {
 }
 
 .glass {
-  background: color-mix(in srgb, var(--solid) 78%, transparent);
+  background: color-mix(in srgb, var(--solid) 86%, transparent);
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
   border: 1px solid var(--border);
@@ -201,7 +311,8 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 16px;
+  min-height: 36px;
+  padding: 8px 16px;
   border-radius: 10px;
   border: 1px solid var(--border-strong);
   background: var(--surface-2);
@@ -223,17 +334,17 @@ textarea {
   transform: scale(0.97);
 }
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 .btn.primary {
-  background: var(--grad);
+  background: var(--grad-strong);
   border-color: transparent;
-  color: white;
-  box-shadow: 0 8px 24px -10px rgba(124, 92, 255, 0.8);
+  color: #ffffff;
+  box-shadow: 0 8px 24px -10px rgba(109, 77, 245, 0.8);
 }
 .btn.primary:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.1);
 }
 .btn.ghost {
   background: transparent;
@@ -243,12 +354,13 @@ textarea {
   background: var(--surface-2);
 }
 .btn.sm {
-  padding: 6px 11px;
+  min-height: 30px;
+  padding: 5px 11px;
   font-size: 0.82rem;
   border-radius: 8px;
 }
 .btn.danger {
-  color: var(--err);
+  color: var(--err-fg);
 }
 
 .chip {
@@ -273,7 +385,7 @@ textarea {
 }
 
 .grad-text {
-  background: var(--grad);
+  background: var(--grad-text);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -302,56 +414,74 @@ textarea {
   flex: 1;
 }
 
-/* range input styling */
+/*
+ * Range inputs: the element itself is 24px tall so the whole track is an easy target (WCAG 2.5.8);
+ * the visible track is drawn by the pseudo-elements. --pct is set inline to paint the filled part.
+ */
 input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 99px;
-  background: linear-gradient(
-    to right,
-    var(--accent) 0%,
-    var(--accent-2) var(--pct, 50%),
-    var(--surface-3) var(--pct, 50%)
-  );
-  outline: none;
+  background: linear-gradient(to right, var(--accent) 0%, var(--accent-2) var(--pct, 50%), var(--track) var(--pct, 50%));
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
   border-radius: 50%;
-  background: white;
-  border: 3px solid var(--accent);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-  cursor: grab;
+  background: #ffffff;
+  border: 3px solid var(--accent-strong);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   transition: transform 0.15s;
 }
-input[type='range']::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
+input[type='range']:hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--track);
+}
+input[type='range']::-moz-range-progress {
+  height: 6px;
+  border-radius: 99px;
+  background: linear-gradient(to right, var(--accent), var(--accent-2));
 }
 input[type='range']::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: white;
-  border: 3px solid var(--accent);
-  cursor: grab;
+  background: #ffffff;
+  border: 3px solid var(--accent-strong);
+}
+input[type='range']:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
 .input {
   width: 100%;
-  padding: 8px 11px;
+  min-height: 34px;
+  padding: 7px 11px;
   border-radius: 9px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-input);
   background: var(--surface);
   font-size: 0.88rem;
 }
-.input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+.input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-color: var(--focus);
 }
 
 .fade-in {
@@ -368,11 +498,16 @@ input[type='range']::-moz-range-thumb {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    transition-duration: 0.001ms !important;
-  }
+/*
+ * Reduced motion. Set from the OS preference on first load and toggled in Settings.
+ * Stops decorative and looping animation (WCAG 2.2.2 / 2.3.3) while keeping end states visible.
+ */
+:root[data-motion='reduce'] *,
+:root[data-motion='reduce'] *::before,
+:root[data-motion='reduce'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
 }
